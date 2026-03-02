@@ -1,7 +1,10 @@
 --[[
-    AP-NEXTGEN HUB v4.0 FINAL
-    Premium UI | Bug Free | Mobile Optimized
-    Opening: WELCOME TO AP-NEXTGEN1
+    AP-NEXTGEN HUB v3.2 REVISION
+    - Fixed Opening Transparency & Animation
+    - Fixed Logo Visibility
+    - Fixed Scrolling (Smooth Scroll)
+    - Added Virtual Fly Controller (Up/Down/Left/Right + Speed)
+    - Enhanced UI Aesthetics
 ]]
 
 -- Services
@@ -10,8 +13,8 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
-local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
+local Lighting = game:GetService("Lighting")
+local TextService = game:GetService("TextService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -24,31 +27,35 @@ end
 -- Config
 local Config = {
     Speed = 16,
-    FlySpeed = 50,
+    FlySpeed = 100,
     GodMode = false,
     Noclip = false,
     Flying = false,
     ESP = false,
-    AutoFollow = false
+    CurrentTab = "Main",
+    FlyDirection = Vector3.new(0,0,0)
 }
 
--- Theme Premium
+-- Theme (Modern Dark Blue/Purple)
 local Theme = {
-    Background = Color3.fromRGB(8, 8, 12),
-    Surface = Color3.fromRGB(18, 18, 25),
-    SurfaceLight = Color3.fromRGB(28, 28, 38),
-    Primary = Color3.fromRGB(0, 200, 255),
-    Secondary = Color3.fromRGB(140, 100, 255),
-    Success = Color3.fromRGB(0, 255, 150),
-    Error = Color3.fromRGB(255, 70, 90),
-    Warning = Color3.fromRGB(255, 200, 50),
+    Background = Color3.fromRGB(12, 12, 18),
+    Surface = Color3.fromRGB(24, 24, 34),
+    SurfaceLight = Color3.fromRGB(35, 35, 48),
+    Primary = Color3.fromRGB(0, 162, 255), -- Cyan Blue
+    Secondary = Color3.fromRGB(138, 43, 226), -- Purple
+    Success = Color3.fromRGB(0, 230, 118),
+    Error = Color3.fromRGB(255, 54, 74),
     Text = Color3.fromRGB(255, 255, 255),
     TextMuted = Color3.fromRGB(160, 160, 180)
 }
 
--- Utility
+-- Utility Functions
 local function Tween(obj, props, dur, style, dir)
-    TweenService:Create(obj, TweenInfo.new(dur or 0.3, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out), props):Play()
+    style = style or Enum.EasingStyle.Quart
+    dir = dir or Enum.EasingDirection.Out
+    local tween = TweenService:Create(obj, TweenInfo.new(dur or 0.3, style, dir), props)
+    tween:Play()
+    return tween
 end
 
 local function Round(parent, rad)
@@ -58,372 +65,323 @@ local function Round(parent, rad)
     return c
 end
 
--- ScreenGui
+local function Stroke(parent, color, thickness)
+    local s = Instance.new("UIStroke")
+    s.Color = color or Theme.Primary
+    s.Thickness = thickness or 1
+    s.Transparency = 0.5
+    s.Parent = parent
+    return s
+end
+
+-- Create ScreenGui
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "APNEXTGEN_FINAL"
+ScreenGui.Name = "APNEXTGEN_V3.2"
 ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+ScreenGui.IgnoreGuiInset = true
 
--- ========== OPENING ANIMATION ==========
-local IntroGui = Instance.new("ScreenGui")
-IntroGui.Name = "Intro"
-IntroGui.Parent = CoreGui
-IntroGui.DisplayOrder = 9999
-
+-- ========== OPENING ANIMATION (FIXED) ==========
 local IntroFrame = Instance.new("Frame")
+IntroFrame.Name = "Intro"
 IntroFrame.Size = UDim2.new(1, 0, 1, 0)
 IntroFrame.BackgroundColor3 = Color3.new(0, 0, 0)
-IntroFrame.BorderSizePixel = 0
-IntroFrame.Parent = IntroGui
+IntroFrame.BackgroundTransparency = 1 -- Start transparent for fade in effect if needed, but we set to 0 immediately
+IntroFrame.ZIndex = 1000
+IntroFrame.Parent = ScreenGui
 
--- Gradient Background
+-- Solid Black Background for Intro
+local IntroBg = Instance.new("Frame")
+IntroBg.Size = UDim2.new(1,0,1,0)
+IntroBg.BackgroundColor3 = Color3.new(0,0,0)
+IntroBg.BorderSizePixel = 0
+IntroBg.ZIndex = 1000
+IntroBg.Parent = IntroFrame
+
+-- Gradient Overlay for Style
 local IntroGradient = Instance.new("UIGradient")
 IntroGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(5, 5, 10)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 15, 30)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 10))
+    ColorSequenceKeypoint.new(0, Color3.new(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(10, 5, 20)),
+    ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0))
 })
 IntroGradient.Rotation = 90
-IntroGradient.Parent = IntroFrame
+IntroGradient.Parent = IntroBg
 
--- Glow Effect Behind Text
-local TextGlow = Instance.new("ImageLabel")
-TextGlow.Size = UDim2.new(0, 600, 0, 200)
-TextGlow.Position = UDim2.new(0.5, -300, 0.4, -100)
-TextGlow.BackgroundTransparency = 1
-TextGlow.Image = "rbxassetid://6015897843"
-TextGlow.ImageColor3 = Theme.Primary
-TextGlow.ImageTransparency = 0.9
-TextGlow.ScaleType = Enum.ScaleType.Slice
-TextGlow.SliceCenter = Rect.new(49, 49, 450, 450)
-TextGlow.Parent = IntroFrame
+-- Main Title (Transparent Background)
+local WelcomeText = Instance.new("TextLabel")
+WelcomeText.Size = UDim2.new(1, 0, 0, 60)
+WelcomeText.Position = UDim2.new(0, 0, 0.4, 0)
+WelcomeText.BackgroundTransparency = 1 -- CRITICAL FIX
+WelcomeText.Text = ""
+WelcomeText.TextColor3 = Theme.Primary
+WelcomeText.TextSize = 42
+WelcomeText.Font = Enum.Font.GothamBlack
+WelcomeText.TextStrokeTransparency = 0.5
+WelcomeText.ZIndex = 1001
+WelcomeText.Parent = IntroFrame
 
--- Main Title
-local MainTitle = Instance.new("TextLabel")
-MainTitle.Size = UDim2.new(1, 0, 0, 80)
-MainTitle.Position = UDim2.new(0, 0, 0.35, 0)
-MainTitle.BackgroundTransparency = 1
-MainTitle.Text = ""
-MainTitle.TextColor3 = Theme.Primary
-MainTitle.TextSize = 52
-MainTitle.Font = Enum.Font.GothamBlack
-MainTitle.TextStrokeTransparency = 0.8
-MainTitle.TextStrokeColor3 = Color3.new(0, 0, 0)
-MainTitle.Parent = IntroFrame
+-- Subtitle (Transparent Background)
+local SubText = Instance.new("TextLabel")
+SubText.Size = UDim2.new(1, 0, 0, 30)
+SubText.Position = UDim2.new(0, 0, 0.55, 0)
+SubText.BackgroundTransparency = 1 -- CRITICAL FIX
+SubText.Text = ""
+SubText.TextColor3 = Theme.Text
+SubText.TextSize = 16
+SubText.Font = Enum.Font.Gotham
+SubText.TextTransparency = 1
+SubText.ZIndex = 1001
+SubText.Parent = IntroFrame
 
--- Subtitle
-local SubTitle = Instance.new("TextLabel")
-SubTitle.Size = UDim2.new(1, 0, 0, 40)
-SubTitle.Position = UDim2.new(0, 0, 0.52, 0)
-SubTitle.BackgroundTransparency = 1
-SubTitle.Text = ""
-SubTitle.TextColor3 = Theme.TextMuted
-SubTitle.TextSize = 20
-SubTitle.Font = Enum.Font.Gotham
-SubTitle.TextStrokeTransparency = 0.9
-SubTitle.TextStrokeColor3 = Color3.new(0, 0, 0)
-SubTitle.Parent = IntroFrame
-
--- Loading Bar Background
-local LoadBg = Instance.new("Frame")
-LoadBg.Size = UDim2.new(0, 350, 0, 3)
-LoadBg.Position = UDim2.new(0.5, -175, 0.65, 0)
-LoadBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-LoadBg.BorderSizePixel = 0
-Round(LoadBg, 2)
-LoadBg.Parent = IntroFrame
+-- Loading Bar Container
+local LoadBarBg = Instance.new("Frame")
+LoadBarBg.Size = UDim2.new(0, 250, 0, 4)
+LoadBarBg.Position = UDim2.new(0.5, -125, 0.65, 0)
+LoadBarBg.BackgroundColor3 = Theme.SurfaceLight
+LoadBarBg.BackgroundTransparency = 0.5
+LoadBarBg.BorderSizePixel = 0
+LoadBarBg.ZIndex = 1001
+Round(LoadBarBg, 2)
+LoadBarBg.Parent = IntroFrame
+Stroke(LoadBarBg, Theme.Primary, 1)
 
 -- Loading Bar Fill
-local LoadFill = Instance.new("Frame")
-LoadFill.Size = UDim2.new(0, 0, 1, 0)
-LoadFill.BackgroundColor3 = Theme.Primary
-LoadFill.BorderSizePixel = 0
-Round(LoadFill, 2)
-LoadFill.Parent = LoadBg
+local LoadBar = Instance.new("Frame")
+LoadBar.Size = UDim2.new(0, 0, 1, 0)
+LoadBar.BackgroundColor3 = Theme.Primary
+LoadBar.BorderSizePixel = 0
+LoadBar.ZIndex = 1002
+Round(LoadBar, 2)
+LoadBar.Parent = LoadBarBg
 
--- Loading Glow
-local LoadGlow = Instance.new("ImageLabel")
-LoadGlow.Size = UDim2.new(1, 20, 1, 10)
-LoadGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
-LoadGlow.AnchorPoint = Vector2.new(0.5, 0.5)
-LoadGlow.BackgroundTransparency = 1
-LoadGlow.Image = "rbxassetid://6015897843"
-LoadGlow.ImageColor3 = Theme.Primary
-LoadGlow.ImageTransparency = 0.7
-LoadGlow.ScaleType = Enum.ScaleType.Slice
-LoadGlow.SliceCenter = Rect.new(49, 49, 450, 450)
-LoadGlow.Parent = LoadFill
-
--- Version Text
-local VersionText = Instance.new("TextLabel")
-VersionText.Size = UDim2.new(1, 0, 0, 20)
-VersionText.Position = UDim2.new(0, 0, 0.9, 0)
-VersionText.BackgroundTransparency = 1
-VersionText.Text = "v4.0 PREMIUM EDITION"
-VersionText.TextColor3 = Color3.fromRGB(80, 80, 100)
-VersionText.TextSize = 12
-VersionText.Font = Enum.Font.Gotham
-VersionText.Parent = IntroFrame
-
--- Typewriter Function
+-- Typewriter Effect Function
 local function TypeWrite(label, text, speed)
+    label.Text = ""
     for i = 1, #text do
         label.Text = string.sub(text, 1, i)
-        wait(speed or 0.06)
+        task.wait(speed or 0.03)
     end
 end
 
--- Opening Animation
+-- Opening Sequence
 spawn(function()
-    wait(0.3)
+    -- Fade In Background
+    Tween(IntroBg, {BackgroundTransparency = 0}, 0.5)
+    task.wait(0.5)
     
-    -- Type main title with glow pulse
-    spawn(function()
-        while wait(0.05) do
-            if not IntroFrame.Parent then break end
-            TextGlow.ImageTransparency = 0.8 + math.sin(tick() * 3) * 0.1
-        end
-    end)
-    
-    TypeWrite(MainTitle, "WELCOME TO AP-NEXTGEN1", 0.08)
-    wait(0.4)
+    -- Type main title
+    TypeWrite(WelcomeText, "WELCOME TO AP-NEXTGEN", 0.05)
     
     -- Fade in subtitle
-    SubTitle.TextTransparency = 1
-    SubTitle.Text = "professional script by APTECH"
-    
-    -- Smooth fade
-    for i = 1, 10 do
-        SubTitle.TextTransparency = 1 - (i/10)
-        wait(0.03)
-    end
+    SubText.Text = "Professional Script by APTECH"
+    Tween(SubText, {TextTransparency = 0}, 0.5)
     
     -- Animate loading bar
-    Tween(LoadFill, {Size = UDim2.new(1, 0, 1, 0)}, 1.2)
-    wait(1.3)
+    Tween(LoadBar, {Size = UDim2.new(1, 0, 1, 0)}, 1.2, Enum.EasingStyle.Quad)
+    task.wait(1.2)
     
-    -- Fade out everything
-    Tween(IntroFrame, {BackgroundTransparency = 1}, 0.6)
-    Tween(MainTitle, {TextTransparency = 1, TextStrokeTransparency = 1}, 0.5)
-    Tween(SubTitle, {TextTransparency = 1, TextStrokeTransparency = 1}, 0.5)
-    Tween(LoadBg, {BackgroundTransparency = 1}, 0.5)
-    Tween(LoadFill, {BackgroundTransparency = 1}, 0.5)
-    Tween(TextGlow, {ImageTransparency = 1}, 0.5)
-    wait(0.6)
+    -- Hold briefly
+    task.wait(0.3)
     
-    IntroGui:Destroy()
+    -- Fade out entire intro
+    Tween(IntroFrame, {BackgroundTransparency = 1}, 0.4)
+    Tween(WelcomeText, {TextTransparency = 1}, 0.4)
+    Tween(SubText, {TextTransparency = 1}, 0.4)
+    Tween(LoadBarBg, {BackgroundTransparency = 1}, 0.4)
+    
+    task.wait(0.5)
+    IntroFrame:Destroy()
 end)
 
--- Wait for intro
-wait(2.8)
+-- ========== MAIN GUI STRUCTURE ==========
+task.wait(2.2) -- Wait for intro to finish
 
--- ========== MAIN GUI ==========
-
--- Minimized Orb (Redesigned)
+-- Minimized Orb Button
 local OrbButton = Instance.new("TextButton")
-OrbButton.Name = "Orb"
-OrbButton.Size = UDim2.new(0, 55, 0, 55)
-OrbButton.Position = UDim2.new(0, 15, 0.5, -27)
+OrbButton.Size = UDim2.new(0, 50, 0, 50)
+OrbButton.Position = UDim2.new(0, 20, 0.5, -25)
 OrbButton.BackgroundColor3 = Theme.Surface
 OrbButton.Text = ""
 OrbButton.Visible = false
 OrbButton.ZIndex = 100
-Round(OrbButton, 28)
+Round(OrbButton, 25)
+Stroke(OrbButton, Theme.Primary, 2)
+OrbButton.Parent = ScreenGui
 
--- Orb Gradient
-local OrbGradient = Instance.new("UIGradient")
-OrbGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Theme.Primary),
-    ColorSequenceKeypoint.new(1, Theme.Secondary)
-})
-OrbGradient.Rotation = 45
-OrbGradient.Parent = OrbButton
-
--- Orb Stroke
-local OrbStroke = Instance.new("UIStroke")
-OrbStroke.Color = Theme.Primary
-OrbStroke.Thickness = 2
-OrbStroke.Parent = OrbButton
-
--- Orb Icon (G1 Logo)
+-- Orb Icon (Fixed to be visible)
 local OrbIcon = Instance.new("TextLabel")
 OrbIcon.Size = UDim2.new(1, 0, 1, 0)
 OrbIcon.BackgroundTransparency = 1
 OrbIcon.Text = "G1"
-OrbIcon.TextColor3 = Color3.new(1, 1, 1)
-OrbIcon.TextSize = 22
+OrbIcon.TextColor3 = Theme.Primary
+OrbIcon.TextSize = 20
 OrbIcon.Font = Enum.Font.GothamBlack
 OrbIcon.ZIndex = 101
 OrbIcon.Parent = OrbButton
 
--- Orb Glow
-local OrbGlow = Instance.new("ImageLabel")
-OrbGlow.Size = UDim2.new(1.5, 0, 1.5, 0)
-OrbGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
-OrbGlow.AnchorPoint = Vector2.new(0.5, 0.5)
-OrbGlow.BackgroundTransparency = 1
-OrbGlow.Image = "rbxassetid://6015897843"
-OrbGlow.ImageColor3 = Theme.Primary
-OrbGlow.ImageTransparency = 0.6
-OrbGlow.ScaleType = Enum.ScaleType.Slice
-OrbGlow.SliceCenter = Rect.new(49, 49, 450, 450)
-OrbGlow.ZIndex = 99
-OrbGlow.Parent = OrbButton
-
-OrbButton.Parent = ScreenGui
-
--- Main Frame (Fixed Size & Scrollable)
+-- Main Frame
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "Main"
-MainFrame.Size = UDim2.new(0, 340, 0, 450)
-MainFrame.Position = UDim2.new(0.5, -170, 0.5, -225)
+MainFrame.Size = UDim2.new(0, 340, 0, 480) -- Slightly taller for scroll
+MainFrame.Position = UDim2.new(0.5, -170, 0.5, -240)
 MainFrame.BackgroundColor3 = Theme.Background
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
-Round(MainFrame, 16)
-
--- Main Glow
-local MainGlow = Instance.new("ImageLabel")
-MainGlow.Size = UDim2.new(1, 50, 1, 50)
-MainGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
-MainGlow.AnchorPoint = Vector2.new(0.5, 0.5)
-MainGlow.BackgroundTransparency = 1
-MainGlow.Image = "rbxassetid://6015897843"
-MainGlow.ImageColor3 = Theme.Primary
-MainGlow.ImageTransparency = 0.85
-MainGlow.ScaleType = Enum.ScaleType.Slice
-MainGlow.SliceCenter = Rect.new(49, 49, 450, 450)
-MainGlow.ZIndex = -1
-MainGlow.Parent = MainFrame
-
+MainFrame.ZIndex = 50
+Round(MainFrame, 12)
 MainFrame.Parent = ScreenGui
+
+-- Glow Effect Behind
+local Glow = Instance.new("ImageLabel")
+Glow.Size = UDim2.new(1, 40, 1, 40)
+Glow.Position = UDim2.new(0.5, 0, 0.5, 0)
+Glow.AnchorPoint = Vector2.new(0.5, 0.5)
+Glow.BackgroundTransparency = 1
+Glow.Image = "rbxassetid://6015897843"
+Glow.ImageColor3 = Theme.Primary
+Glow.ImageTransparency = 0.85
+Glow.ScaleType = Enum.ScaleType.Slice
+Glow.SliceCenter = Rect.new(49, 49, 450, 450)
+Glow.ZIndex = -1
+Glow.Parent = MainFrame
 
 -- Top Bar
 local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 50)
+TopBar.Size = UDim2.new(1, 0, 0, 45)
 TopBar.BackgroundColor3 = Theme.Surface
 TopBar.BorderSizePixel = 0
+TopBar.ZIndex = 51
 TopBar.Parent = MainFrame
-Round(TopBar, 16)
+Round(TopBar, 12)
 
+-- Fix bottom edge of topbar to merge seamlessly
 local TopFix = Instance.new("Frame")
-TopFix.Size = UDim2.new(1, 0, 0, 20)
-TopFix.Position = UDim2.new(0, 0, 1, -20)
+TopFix.Size = UDim2.new(1, 0, 0, 5)
+TopFix.Position = UDim2.new(0, 0, 1, -5)
 TopFix.BackgroundColor3 = Theme.Surface
 TopFix.BorderSizePixel = 0
+TopFix.ZIndex = 51
 TopFix.Parent = TopBar
 
--- Logo
-local LogoFrame = Instance.new("Frame")
-LogoFrame.Size = UDim2.new(0, 32, 0, 32)
-LogoFrame.Position = UDim2.new(0, 12, 0.5, -16)
-LogoFrame.BackgroundColor3 = Theme.Primary
-Round(LogoFrame, 8)
-LogoFrame.Parent = TopBar
+-- LOGO (FIXED: Visible Circle with Content)
+local LogoContainer = Instance.new("Frame")
+LogoContainer.Size = UDim2.new(0, 30, 0, 30)
+LogoContainer.Position = UDim2.new(0, 10, 0.5, -15)
+LogoContainer.BackgroundColor3 = Theme.Primary
+LogoContainer.ZIndex = 52
+Round(LogoContainer, 8)
+LogoContainer.Parent = TopBar
+
+local LogoInner = Instance.new("Frame")
+LogoInner.Size = UDim2.new(0.8, 0, 0.8, 0)
+LogoInner.Position = UDim2.new(0.1, 0, 0.1, 0)
+LogoInner.BackgroundColor3 = Color3.new(1,1,1)
+LogoInner.ZIndex = 53
+Round(LogoInner, 6)
+LogoInner.Parent = LogoContainer
 
 local LogoText = Instance.new("TextLabel")
 LogoText.Size = UDim2.new(1, 0, 1, 0)
 LogoText.BackgroundTransparency = 1
 LogoText.Text = "G1"
-LogoText.TextColor3 = Color3.new(1, 1, 1)
+LogoText.TextColor3 = Theme.Primary
 LogoText.TextSize = 14
 LogoText.Font = Enum.Font.GothamBlack
-LogoText.Parent = LogoFrame
+LogoText.ZIndex = 54
+LogoText.Parent = LogoInner
 
--- Title Group
-local TitleGroup = Instance.new("Frame")
-TitleGroup.Size = UDim2.new(0, 180, 1, 0)
-TitleGroup.Position = UDim2.new(0, 52, 0, 0)
-TitleGroup.BackgroundTransparency = 1
-TitleGroup.Parent = TopBar
+-- Titles
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0, 160, 0, 20)
+Title.Position = UDim2.new(0, 48, 0, 8)
+Title.BackgroundTransparency = 1
+Title.Text = "AP-NEXTGEN"
+Title.TextColor3 = Theme.Text
+Title.TextSize = 15
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.ZIndex = 52
+Title.Parent = TopBar
 
-local TitleText = Instance.new("TextLabel")
-TitleText.Size = UDim2.new(1, 0, 0.6, 0)
-TitleText.Position = UDim2.new(0, 0, 0.1, 0)
-TitleText.BackgroundTransparency = 1
-TitleText.Text = "AP-NEXTGEN"
-TitleText.TextColor3 = Theme.Text
-TitleText.TextSize = 16
-TitleText.Font = Enum.Font.GothamBold
-TitleText.TextXAlignment = Enum.TextXAlignment.Left
-TitleText.Parent = TitleGroup
+local SubTitle = Instance.new("TextLabel")
+SubTitle.Size = UDim2.new(0, 160, 0, 12)
+SubTitle.Position = UDim2.new(0, 48, 0, 26)
+SubTitle.BackgroundTransparency = 1
+SubTitle.Text = "PREMIUM EDITION"
+SubTitle.TextColor3 = Theme.Primary
+SubTitle.TextSize = 9
+SubTitle.Font = Enum.Font.Gotham
+SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+SubTitle.ZIndex = 52
+SubTitle.Parent = TopBar
 
-local SubText = Instance.new("TextLabel")
-SubText.Size = UDim2.new(1, 0, 0.4, 0)
-SubText.Position = UDim2.new(0, 0, 0.55, 0)
-SubText.BackgroundTransparency = 1
-SubText.Text = "PREMIUM HUB"
-SubText.TextColor3 = Theme.Primary
-SubText.TextSize = 10
-SubText.Font = Enum.Font.Gotham
-SubText.TextXAlignment = Enum.TextXAlignment.Left
-SubText.Parent = TitleGroup
-
--- Window Controls
+-- Controls (Min/Close)
 local MinBtn = Instance.new("TextButton")
 MinBtn.Size = UDim2.new(0, 28, 0, 28)
-MinBtn.Position = UDim2.new(1, -68, 0.5, -14)
+MinBtn.Position = UDim2.new(1, -65, 0.5, -14)
 MinBtn.BackgroundColor3 = Theme.SurfaceLight
-MinBtn.Text = "−"
-MinBtn.TextColor3 = Theme.TextMuted
-MinBtn.TextSize = 20
+MinBtn.Text = "-"
+MinBtn.TextColor3 = Theme.Text
+MinBtn.TextSize = 18
 MinBtn.Font = Enum.Font.GothamBold
 Round(MinBtn, 6)
+MinBtn.ZIndex = 52
 MinBtn.Parent = TopBar
 
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 28, 0, 28)
-CloseBtn.Position = UDim2.new(1, -36, 0.5, -14)
+CloseBtn.Position = UDim2.new(1, -35, 0.5, -14)
 CloseBtn.BackgroundColor3 = Theme.Error
 CloseBtn.Text = "×"
 CloseBtn.TextColor3 = Color3.new(1, 1, 1)
-CloseBtn.TextSize = 20
+CloseBtn.TextSize = 18
 CloseBtn.Font = Enum.Font.GothamBold
 Round(CloseBtn, 6)
+CloseBtn.ZIndex = 52
 CloseBtn.Parent = TopBar
 
--- SCROLLABLE CONTENT (FIXED)
-local ScrollFrame = Instance.new("ScrollingFrame")
-ScrollFrame.Name = "Content"
-ScrollFrame.Size = UDim2.new(1, -20, 1, -70)
-ScrollFrame.Position = UDim2.new(0, 10, 0, 60)
-ScrollFrame.BackgroundTransparency = 1
-ScrollFrame.BorderSizePixel = 0
-ScrollFrame.ScrollBarThickness = 4
-ScrollFrame.ScrollBarImageColor3 = Theme.Primary
-ScrollBarImageTransparency = 0.3
-ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 800) -- Initial size
-ScrollFrame.Parent = MainFrame
+-- CONTENT AREA WITH SCROLLING (FIXED)
+local ContentFrame = Instance.new("ScrollingFrame")
+ContentFrame.Size = UDim2.new(1, -15, 1, -60)
+ContentFrame.Position = UDim2.new(0, 10, 0, 55)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.BorderSizePixel = 0
+ContentFrame.ScrollBarThickness = 5
+ContentFrame.ScrollBarImageColor3 = Theme.Primary
+ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ContentFrame.CanvasSize = UDim2.new(0, 0, 0, 0) -- Will be updated by layout
+ContentFrame.ZIndex = 50
+ContentFrame.Parent = MainFrame
 
--- Content List
-local ContentList = Instance.new("UIListLayout")
-ContentList.Padding = UDim.new(0, 10)
-ContentList.Parent = ScrollFrame
+-- Layout for Content
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.Padding = UDim.new(0, 10)
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.Parent = ContentFrame
 
--- Update canvas size when content changes
-ContentList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, ContentList.AbsoluteContentSize.Y + 20)
-end)
+local Padding = Instance.new("UIPadding")
+Padding.PaddingBottom = UDim.new(0, 15)
+Padding.PaddingLeft = UDim.new(0, 5)
+Padding.PaddingRight = UDim.new(0, 5)
+Padding.Parent = ContentFrame
 
--- Components
-local function CreateCard(title)
+-- Component: Card
+local function CreateCard(title, order)
     local Card = Instance.new("Frame")
     Card.Size = UDim2.new(1, 0, 0, 0)
     Card.AutomaticSize = Enum.AutomaticSize.Y
     Card.BackgroundColor3 = Theme.Surface
     Card.BackgroundTransparency = 0.2
     Card.BorderSizePixel = 0
-    Round(Card, 12)
-    
-    local Stroke = Instance.new("UIStroke")
-    Stroke.Color = Color3.fromRGB(40, 40, 50)
-    Stroke.Thickness = 1
-    Stroke.Parent = Card
+    Card.LayoutOrder = order
+    Round(Card, 10)
+    Stroke(Card, Theme.SurfaceLight, 1)
     
     local CardTitle = Instance.new("TextLabel")
-    CardTitle.Size = UDim2.new(1, -20, 0, 32)
-    CardTitle.Position = UDim2.new(0, 12, 0, 8)
+    CardTitle.Size = UDim2.new(1, -20, 0, 24)
+    CardTitle.Position = UDim2.new(0, 10, 0, 8)
     CardTitle.BackgroundTransparency = 1
     CardTitle.Text = title
     CardTitle.TextColor3 = Theme.Primary
@@ -432,32 +390,29 @@ local function CreateCard(title)
     CardTitle.TextXAlignment = Enum.TextXAlignment.Left
     CardTitle.Parent = Card
     
-    local Line = Instance.new("Frame")
-    Line.Size = UDim2.new(1, -24, 0, 1)
-    Line.Position = UDim2.new(0, 12, 0, 36)
-    Line.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-    Line.BorderSizePixel = 0
-    Line.Parent = Card
+    local Divider = Instance.new("Frame")
+    Divider.Size = UDim2.new(1, -20, 0, 1)
+    Divider.Position = UDim2.new(0, 10, 0, 35)
+    Divider.BackgroundColor3 = Theme.SurfaceLight
+    Divider.BackgroundTransparency = 0.5
+    Divider.BorderSizePixel = 0
+    Divider.Parent = Card
     
     local Container = Instance.new("Frame")
-    Container.Size = UDim2.new(1, -24, 0, 0)
-    Container.Position = UDim2.new(0, 12, 0, 42)
+    Container.Size = UDim2.new(1, -20, 0, 0)
+    Container.Position = UDim2.new(0, 10, 0, 42)
     Container.AutomaticSize = Enum.AutomaticSize.Y
     Container.BackgroundTransparency = 1
     Container.Parent = Card
     
-    local List = Instance.new("UIListLayout")
-    List.Padding = UDim.new(0, 8)
-    List.Parent = Container
+    local ContList = Instance.new("UIListLayout")
+    ContList.Padding = UDim.new(0, 8)
+    ContList.Parent = Container
     
-    local Pad = Instance.new("UIPadding")
-    Pad.PaddingBottom = UDim.new(0, 12)
-    Pad.Parent = Card
-    
-    Card.Parent = ScrollFrame
-    return Container
+    return Card, Container
 end
 
+-- Component: Toggle
 local function CreateToggle(parent, text, callback)
     local Frame = Instance.new("Frame")
     Frame.Size = UDim2.new(1, 0, 0, 36)
@@ -465,7 +420,7 @@ local function CreateToggle(parent, text, callback)
     Frame.Parent = parent
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0.7, 0, 1, 0)
+    Label.Size = UDim2.new(0.65, 0, 1, 0)
     Label.BackgroundTransparency = 1
     Label.Text = text
     Label.TextColor3 = Theme.Text
@@ -474,69 +429,75 @@ local function CreateToggle(parent, text, callback)
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
     
-    local ToggleBtn = Instance.new("TextButton")
-    ToggleBtn.Size = UDim2.new(0, 48, 0, 24)
-    ToggleBtn.Position = UDim2.new(1, -48, 0.5, -12)
-    ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-    ToggleBtn.Text = "OFF"
-    ToggleBtn.TextColor3 = Theme.TextMuted
-    ToggleBtn.TextSize = 10
-    ToggleBtn.Font = Enum.Font.GothamBold
-    Round(ToggleBtn, 12)
-    ToggleBtn.Parent = Frame
+    local Btn = Instance.new("TextButton")
+    Btn.Size = UDim2.new(0, 50, 0, 24)
+    Btn.Position = UDim2.new(1, -50, 0.5, -12)
+    Btn.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+    Btn.Text = "OFF"
+    Btn.TextColor3 = Theme.TextMuted
+    Btn.TextSize = 10
+    Btn.Font = Enum.Font.GothamBold
+    Round(Btn, 12)
+    Btn.Parent = Frame
     
     local enabled = false
-    ToggleBtn.MouseButton1Click:Connect(function()
+    Btn.MouseButton1Click:Connect(function()
         enabled = not enabled
-        ToggleBtn.Text = enabled and "ON" or "OFF"
-        Tween(ToggleBtn, {BackgroundColor3 = enabled and Theme.Success or Color3.fromRGB(60, 60, 70)}, 0.2)
-        Tween(ToggleBtn, {TextColor3 = enabled and Color3.new(1,1,1) or Theme.TextMuted}, 0.2)
+        Btn.Text = enabled and "ON" or "OFF"
+        Tween(Btn, {BackgroundColor3 = enabled and Theme.Success or Color3.fromRGB(50, 50, 60)}, 0.2)
+        Tween(Btn, {TextColor3 = enabled and Color3.new(1,1,1) or Theme.TextMuted}, 0.2)
         if callback then callback(enabled) end
     end)
     
     return Frame
 end
 
+-- Component: Slider
 local function CreateSlider(parent, text, min, max, default, callback)
     local Frame = Instance.new("Frame")
     Frame.Size = UDim2.new(1, 0, 0, 50)
     Frame.BackgroundTransparency = 1
     Frame.Parent = parent
     
+    local Header = Instance.new("Frame")
+    Header.Size = UDim2.new(1, 0, 0, 20)
+    Header.BackgroundTransparency = 1
+    Header.Parent = Frame
+    
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0.6, 0, 0, 20)
+    Label.Size = UDim2.new(0.6, 0, 1, 0)
     Label.BackgroundTransparency = 1
     Label.Text = text
     Label.TextColor3 = Theme.Text
     Label.TextSize = 12
     Label.Font = Enum.Font.Gotham
     Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.Parent = Frame
+    Label.Parent = Header
     
-    local ValueBox = Instance.new("TextBox")
-    ValueBox.Size = UDim2.new(0, 50, 0, 22)
-    ValueBox.Position = UDim2.new(1, -50, 0, 0)
-    ValueBox.BackgroundColor3 = Theme.SurfaceLight
-    ValueBox.Text = tostring(default)
-    ValueBox.TextColor3 = Theme.Primary
-    ValueBox.TextSize = 11
-    ValueBox.Font = Enum.Font.GothamBold
-    Round(ValueBox, 4)
-    ValueBox.Parent = Frame
+    local Val = Instance.new("TextLabel")
+    Val.Size = UDim2.new(0.4, 0, 1, 0)
+    Val.Position = UDim2.new(0.6, 0, 0, 0)
+    Val.BackgroundTransparency = 1
+    Val.Text = tostring(default)
+    Val.TextColor3 = Theme.Primary
+    Val.TextSize = 12
+    Val.Font = Enum.Font.GothamBold
+    Val.TextXAlignment = Enum.TextXAlignment.Right
+    Val.Parent = Header
     
     local Track = Instance.new("Frame")
-    Track.Size = UDim2.new(1, 0, 0, 4)
-    Track.Position = UDim2.new(0, 0, 0, 36)
+    Track.Size = UDim2.new(1, 0, 0, 6)
+    Track.Position = UDim2.new(0, 0, 0, 24)
     Track.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     Track.BorderSizePixel = 0
-    Round(Track, 2)
+    Round(Track, 3)
     Track.Parent = Frame
     
     local Fill = Instance.new("Frame")
     Fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
     Fill.BackgroundColor3 = Theme.Primary
     Fill.BorderSizePixel = 0
-    Round(Fill, 2)
+    Round(Fill, 3)
     Fill.Parent = Track
     
     local Knob = Instance.new("Frame")
@@ -551,7 +512,7 @@ local function CreateSlider(parent, text, min, max, default, callback)
     local function update(input)
         local pos = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
         local val = math.floor(min + (max - min) * pos)
-        ValueBox.Text = tostring(val)
+        Val.Text = tostring(val)
         Fill.Size = UDim2.new(pos, 0, 1, 0)
         Knob.Position = UDim2.new(pos, -7, 0.5, -7)
         if callback then callback(val) end
@@ -571,172 +532,266 @@ local function CreateSlider(parent, text, min, max, default, callback)
     end)
     
     UserInputService.InputEnded:Connect(function(input)
-        dragging = false
-    end)
-    
-    ValueBox.FocusLost:Connect(function()
-        local val = math.clamp(tonumber(ValueBox.Text) or default, min, max)
-        ValueBox.Text = tostring(val)
-        local pos = (val - min) / (max - min)
-        Fill.Size = UDim2.new(pos, 0, 1, 0)
-        Knob.Position = UDim2.new(pos, -7, 0.5, -7)
-        if callback then callback(val) end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
     end)
     
     return Frame
 end
 
+-- Component: Button
 local function CreateButton(parent, text, style, callback)
     local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(1, 0, 0, 34)
+    Btn.Size = UDim2.new(1, 0, 0, 36)
     Btn.BackgroundColor3 = style == "primary" and Theme.Primary or Theme.SurfaceLight
     Btn.Text = text
     Btn.TextColor3 = Color3.new(1, 1, 1)
     Btn.TextSize = 12
     Btn.Font = Enum.Font.GothamBold
-    Round(Btn, 6)
+    Round(Btn, 8)
     Btn.Parent = parent
     
     Btn.MouseButton1Click:Connect(function()
-        Tween(Btn, {Size = UDim2.new(0.97, 0, 0, 32)}, 0.1)
-        wait(0.1)
-        Tween(Btn, {Size = UDim2.new(1, 0, 0, 34)}, 0.1)
+        Tween(Btn, {Size = UDim2.new(0.96, 0, 0, 34)}, 0.1)
+        task.wait(0.1)
+        Tween(Btn, {Size = UDim2.new(1, 0, 0, 36)}, 0.1)
         if callback then callback() end
     end)
     
     return Btn
 end
 
--- ========== FEATURES ==========
+-- ========== VIRTUAL FLY CONTROLLER (NEW GUI) ==========
+local FlyController = Instance.new("Frame")
+FlyController.Name = "FlyController"
+FlyController.Size = UDim2.new(0, 180, 0, 220)
+FlyController.Position = UDim2.new(1, -200, 1, -240) -- Bottom Right
+FlyController.BackgroundColor3 = Theme.Background
+FlyController.BackgroundTransparency = 0.1
+FlyController.BorderSizePixel = 0
+FlyController.Visible = false
+FlyController.ZIndex = 200
+Round(FlyController, 12)
+Stroke(FlyController, Theme.Primary, 1)
+FlyController.Parent = ScreenGui
 
--- Speed
-local SpeedCont = CreateCard("MOVEMENT SPEED")
-CreateSlider(SpeedCont, "WalkSpeed", 16, 300, 50, function(val)
+-- Controller Header
+local CtrlHeader = Instance.new("TextLabel")
+CtrlHeader.Size = UDim2.new(1, 0, 0, 30)
+CtrlHeader.BackgroundTransparency = 1
+CtrlHeader.Text = "FLY CONTROL"
+CtrlHeader.TextColor3 = Theme.Primary
+CtrlHeader.TextSize = 10
+CtrlHeader.Font = Enum.Font.GothamBold
+CtrlHeader.Parent = FlyController
+
+-- D-Pad Layout
+local DPadFrame = Instance.new("Frame")
+DPadFrame.Size = UDim2.new(0, 140, 0, 140)
+DPadFrame.Position = UDim2.new(0.5, -70, 0, 35)
+DPadFrame.BackgroundTransparency = 1
+DPadFrame.Parent = FlyController
+
+local function CreateDirBtn(parent, text, pos, key, direction)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 40, 0, 40)
+    btn.Position = pos
+    btn.BackgroundColor3 = Theme.SurfaceLight
+    btn.Text = text
+    btn.TextColor3 = Theme.Text
+    btn.TextSize = 18
+    btn.Font = Enum.Font.GothamBlack
+    Round(btn, 8)
+    btn.Parent = parent
+    
+    local active = false
+    
+    local function startFly()
+        active = true
+        btn.BackgroundColor3 = Theme.Primary
+        Config.FlyDirection = direction
+    end
+    
+    local function stopFly()
+        active = false
+        btn.BackgroundColor3 = Theme.SurfaceLight
+        if Config.FlyDirection == direction then
+            Config.FlyDirection = Vector3.new(0,0,0)
+        end
+    end
+    
+    btn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            startFly()
+        end
+    end)
+    
+    btn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            stopFly()
+        end
+    end)
+    
+    -- Mouse leave safety
+    btn.MouseLeave:Connect(function()
+        if active then stopFly() end
+    end)
+    
+    return btn
+end
+
+-- D-Pad Buttons
+CreateDirBtn(DPadFrame, "▲", UDim2.new(0.5, -20, 0, 0), Enum.KeyCode.W, Vector3.new(0, 0, -1)) -- Up (Forward)
+CreateDirBtn(DPadFrame, "▼", UDim2.new(0.5, -20, 0, 100), Enum.KeyCode.S, Vector3.new(0, 0, 1)) -- Down (Backward)
+CreateDirBtn(DPadFrame, "◀", UDim2.new(0, 0, 0.5, -20), Enum.KeyCode.A, Vector3.new(-1, 0, 0)) -- Left
+CreateDirBtn(DPadFrame, "▶", UDim2.new(1, -40, 0.5, -20), Enum.KeyCode.D, Vector3.new(1, 0, 0)) -- Right
+
+-- Vertical Fly (High/Low) - Smaller buttons below
+local UpBtn = CreateDirBtn(DPadFrame, "UP", UDim2.new(0.5, -20, 0, -25), Enum.KeyCode.Space, Vector3.new(0, 1, 0))
+UpBtn.Size = UDim2.new(0, 40, 0, 25)
+UpBtn.TextSize = 10
+
+local DownBtn = CreateDirBtn(DPadFrame, "DN", UDim2.new(0.5, -20, 0, 125), Enum.KeyCode.LeftShift, Vector3.new(0, -1, 0))
+DownBtn.Size = UDim2.new(0, 40, 0, 25)
+DownBtn.TextSize = 10
+
+-- Speed Slider in Controller
+local CtrlSliderTrack = Instance.new("Frame")
+CtrlSliderTrack.Size = UDim2.new(0.8, 0, 0, 4)
+CtrlSliderTrack.Position = UDim2.new(0.1, 0, 1, -25)
+CtrlSliderTrack.BackgroundColor3 = Theme.SurfaceLight
+Round(CtrlSliderTrack, 2)
+CtrlSliderTrack.Parent = FlyController
+
+local CtrlSliderFill = Instance.new("Frame")
+CtrlSliderFill.Size = UDim2.new(0.5, 0, 1, 0)
+CtrlSliderFill.BackgroundColor3 = Theme.Secondary
+Round(CtrlSliderFill, 2)
+CtrlSliderFill.Parent = CtrlSliderTrack
+
+local CtrlSpeedLabel = Instance.new("TextLabel")
+CtrlSpeedLabel.Size = UDim2.new(1, 0, 0, 15)
+CtrlSpeedLabel.Position = UDim2.new(0, 0, 1, -22)
+CtrlSpeedLabel.BackgroundTransparency = 1
+CtrlSpeedLabel.Text = "Speed: 100"
+CtrlSpeedLabel.TextColor3 = Theme.TextMuted
+CtrlSpeedLabel.TextSize = 9
+CtrlSpeedLabel.Font = Enum.Font.Gotham
+CtrlSpeedLabel.Parent = FlyController
+
+-- Slider Logic for Controller
+local ctrlDragging = false
+CtrlSliderTrack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        ctrlDragging = true
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if ctrlDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local pos = math.clamp((input.Position.X - CtrlSliderTrack.AbsolutePosition.X) / CtrlSliderTrack.AbsoluteSize.X, 0, 1)
+        local val = math.floor(10 + (200 - 10) * pos)
+        Config.FlySpeed = val
+        CtrlSpeedLabel.Text = "Speed: " .. val
+        CtrlSliderFill.Size = UDim2.new(pos, 0, 1, 0)
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        ctrlDragging = false
+    end
+end)
+
+
+-- ========== FEATURES IMPLEMENTATION ==========
+
+-- 1. Speed Card
+local SpeedCard, SpeedCont = CreateCard("MOVEMENT SPEED", 1)
+SpeedCard.Parent = ContentFrame
+
+CreateSlider(SpeedCont, "Walk Speed", 16, 300, 50, function(val)
     Config.Speed = val
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         LocalPlayer.Character.Humanoid.WalkSpeed = val
     end
 end)
 
-CreateButton(SpeedCont, "Reset Speed", "normal", function()
+CreateButton(SpeedCont, "Reset Speed (16)", "normal", function()
     Config.Speed = 16
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         LocalPlayer.Character.Humanoid.WalkSpeed = 16
     end
 end)
 
--- Fly
-local FlyCont = CreateCard("FLY CONTROL")
-CreateSlider(FlyCont, "Fly Speed", 10, 200, 50, function(val)
+-- 2. Fly Card
+local FlyCard, FlyCont = CreateCard("FLY SYSTEM", 2)
+FlyCard.Parent = ContentFrame
+
+CreateSlider(FlyCont, "Base Fly Speed", 10, 200, 100, function(val)
     Config.FlySpeed = val
+    CtrlSpeedLabel.Text = "Speed: " .. val
+    -- Update controller slider visual roughly
+    local percent = (val - 10) / (200 - 10)
+    CtrlSliderFill.Size = UDim2.new(percent, 0, 1, 0)
 end)
 
-CreateToggle(FlyCont, "Enable Fly", function(enabled)
+local flyConnection = nil
+CreateToggle(FlyCont, "Enable Fly Mode", function(enabled)
     Config.Flying = enabled
+    FlyController.Visible = enabled
+    
+    if enabled then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local hrp = char.HumanoidRootPart
+            -- Stop existing loops if any
+            if flyConnection then flyConnection:Disconnect() end
+            
+            flyConnection = RunService.Heartbeat:Connect(function()
+                if Config.Flying and Config.FlyDirection ~= Vector3.new(0,0,0) then
+                    -- Calculate velocity based on camera direction for forward/back
+                    local camDir = Camera.CFrame.LookVector
+                    local camRight = Camera.CFrame.RightVector
+                    
+                    local moveVec = Vector3.new(0,0,0)
+                    
+                    if Config.FlyDirection == Vector3.new(0, 0, -1) then -- Forward
+                        moveVec = camDir * Config.FlySpeed
+                    elseif Config.FlyDirection == Vector3.new(0, 0, 1) then -- Backward
+                        moveVec = -camDir * Config.FlySpeed
+                    elseif Config.FlyDirection == Vector3.new(-1, 0, 0) then -- Left
+                        moveVec = -camRight * Config.FlySpeed
+                    elseif Config.FlyDirection == Vector3.new(1, 0, 0) then -- Right
+                        moveVec = camRight * Config.FlySpeed
+                    elseif Config.FlyDirection == Vector3.new(0, 1, 0) then -- Up
+                        moveVec = Vector3.new(0, Config.FlySpeed, 0)
+                    elseif Config.FlyDirection == Vector3.new(0, -1, 0) then -- Down
+                        moveVec = Vector3.new(0, -Config.FlySpeed, 0)
+                    end
+                    
+                    hrp.Velocity = moveVec
+                elseif not Config.Flying then
+                    hrp.Velocity = Vector3.new(0,0,0)
+                end
+            end)
+        end
+    else
+        FlyController.Visible = false
+        if flyConnection then 
+            flyConnection:Disconnect() 
+            flyConnection = nil
+        end
+        -- Reset velocity
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.Velocity = Vector3.new(0,0,0)
+        end
+    end
 end)
 
--- Mobile Fly Controls (Separate GUI)
-local MobileGui = Instance.new("ScreenGui")
-MobileGui.Name = "MobileFly"
-MobileGui.Parent = CoreGui
-MobileGui.Enabled = false
+-- 3. Noclip Card
+local NoclipCard, NoclipCont = CreateCard("NOCLIP", 3)
+NoclipCard.Parent = ContentFrame
 
-local MobilePanel = Instance.new("Frame")
-MobilePanel.Size = UDim2.new(0, 220, 0, 280)
-MobilePanel.Position = UDim2.new(0.5, -110, 0.7, -140)
-MobilePanel.BackgroundColor3 = Theme.Surface
-MobilePanel.BackgroundTransparency = 0.1
-MobilePanel.BorderSizePixel = 0
-MobilePanel.Visible = false
-Round(MobilePanel, 16)
-
-local MobileStroke = Instance.new("UIStroke")
-MobileStroke.Color = Theme.Primary
-MobileStroke.Thickness = 2
-MobileStroke.Parent = MobilePanel
-
-MobilePanel.Parent = MobileGui
-
-local MobileTitle = Instance.new("TextLabel")
-MobileTitle.Size = UDim2.new(1, 0, 0, 35)
-MobileTitle.BackgroundTransparency = 1
-MobileTitle.Text = "FLY CONTROLS"
-MobileTitle.TextColor3 = Theme.Primary
-MobileTitle.TextSize = 16
-MobileTitle.Font = Enum.Font.GothamBold
-MobileTitle.Parent = MobilePanel
-
-local CloseMobileBtn = Instance.new("TextButton")
-CloseMobileBtn.Size = UDim2.new(0, 28, 0, 28)
-CloseMobileBtn.Position = UDim2.new(1, -33, 0, 5)
-CloseMobileBtn.BackgroundColor3 = Theme.Error
-CloseMobileBtn.Text = "×"
-CloseMobileBtn.TextColor3 = Color3.new(1, 1, 1)
-CloseMobileBtn.TextSize = 18
-CloseMobileBtn.Font = Enum.Font.GothamBold
-Round(CloseMobileBtn, 6)
-CloseMobileBtn.Parent = MobilePanel
-
--- D-Pad Layout
-local function CreateMobileBtn(text, pos, dirVec)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 55, 0, 55)
-    btn.Position = pos
-    btn.BackgroundColor3 = Theme.SurfaceLight
-    btn.Text = text
-    btn.TextColor3 = Theme.Text
-    btn.TextSize = 24
-    btn.Font = Enum.Font.GothamBold
-    Round(btn, 12)
-    btn.Parent = MobilePanel
-    
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Theme.Primary
-    stroke.Thickness = 1
-    stroke.Parent = btn
-    
-    btn.MouseButton1Down:Connect(function()
-        Tween(btn, {BackgroundColor3 = Theme.Primary}, 0.1)
-    end)
-    
-    btn.MouseButton1Up:Connect(function()
-        Tween(btn, {BackgroundColor3 = Theme.SurfaceLight}, 0.1)
-    end)
-    
-    return btn
-end
-
--- Center
-CreateMobileBtn("↑", UDim2.new(0.5, -27.5, 0, 45), Vector3.new(0, 1, 0)) -- Up
-CreateMobileBtn("↓", UDim2.new(0.5, -27.5, 1, -100), Vector3.new(0, -1, 0)) -- Down
-CreateMobileBtn("W", UDim2.new(0.5, -27.5, 0.5, -50), Vector3.new(0, 0, -1)) -- Forward
-CreateMobileBtn("S", UDim2.new(0.5, -27.5, 0.5, 10), Vector3.new(0, 0, 1)) -- Back
-CreateMobileBtn("A", UDim2.new(0, 10, 0.5, -20), Vector3.new(-1, 0, 0)) -- Left
-CreateMobileBtn("D", UDim2.new(1, -65, 0.5, -20), Vector3.new(1, 0, 0)) -- Right
-
--- Speed Control in Mobile
-local SpeedLabel = Instance.new("TextLabel")
-SpeedLabel.Size = UDim2.new(1, 0, 0, 20)
-SpeedLabel.Position = UDim2.new(0, 0, 1, -35)
-SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.Text = "Speed: 50"
-SpeedLabel.TextColor3 = Theme.TextMuted
-SpeedLabel.TextSize = 11
-SpeedLabel.Font = Enum.Font.Gotham
-SpeedLabel.Parent = MobilePanel
-
-CreateButton(FlyCont, "Open Mobile Controls", "primary", function()
-    MobileGui.Enabled = not MobileGui.Enabled
-    MobilePanel.Visible = MobileGui.Enabled
-end)
-
-CloseMobileBtn.MouseButton1Click:Connect(function()
-    MobileGui.Enabled = false
-    MobilePanel.Visible = false
-end)
-
--- Noclip
-local NoclipCont = CreateCard("NOCLIP")
 local NoclipConn = nil
 CreateToggle(NoclipCont, "Enable Noclip", function(enabled)
     Config.Noclip = enabled
@@ -744,173 +799,165 @@ CreateToggle(NoclipCont, "Enable Noclip", function(enabled)
         NoclipConn = RunService.Stepped:Connect(function()
             if LocalPlayer.Character then
                 for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then part.CanCollide = false end
+                    if part:IsA("BasePart") then 
+                        part.CanCollide = false 
+                    end
                 end
             end
         end)
     else
         if NoclipConn then NoclipConn:Disconnect() end
+        -- Restore collision
+        if LocalPlayer.Character then
+            for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = true end
+            end
+        end
     end
 end)
 
--- Teleport
-local TPCont = CreateCard("TELEPORT")
-local PlayerListFrame = Instance.new("ScrollingFrame")
-PlayerListFrame.Size = UDim2.new(1, 0, 0, 120)
-PlayerListFrame.BackgroundColor3 = Theme.SurfaceLight
-PlayerListFrame.BackgroundTransparency = 0.3
-PlayerListFrame.BorderSizePixel = 0
-PlayerListFrame.ScrollBarThickness = 4
-PlayerListFrame.ScrollBarImageColor3 = Theme.Primary
-PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-Round(PlayerListFrame, 8)
-PlayerListFrame.Parent = TPCont
+-- 4. Teleport Card
+local TPCard, TPCont = CreateCard("TELEPORT", 4)
+TPCard.Parent = ContentFrame
 
-local ListLayout = Instance.new("UIListLayout")
-ListLayout.Padding = UDim.new(0, 4)
-ListLayout.Parent = PlayerListFrame
+local PlayerList = Instance.new("ScrollingFrame")
+PlayerList.Size = UDim2.new(1, 0, 0, 120)
+PlayerList.BackgroundColor3 = Theme.SurfaceLight
+PlayerList.BackgroundTransparency = 0.8
+PlayerList.BorderSizePixel = 0
+PlayerList.ScrollBarThickness = 4
+PlayerList.ScrollBarImageColor3 = Theme.Primary
+PlayerList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PlayerList.CanvasSize = UDim2.new(0,0,0,0)
+Round(PlayerList, 6)
+PlayerList.Parent = TPCont
+
+local ListLayoutPL = Instance.new("UIListLayout")
+ListLayoutPL.Padding = UDim.new(0, 4)
+ListLayoutPL.Parent = PlayerList
 
 local SelectedPlayer = nil
 
-local function UpdatePlayerList()
-    for _, c in pairs(PlayerListFrame:GetChildren()) do
-        if c:IsA("TextButton") then c:Destroy() end
-    end
+local function UpdateList()
+    for _, c in pairs(PlayerList:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
     
+    local count = 0
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
             local btn = Instance.new("TextButton")
             btn.Size = UDim2.new(1, -8, 0, 30)
-            btn.Position = UDim2.new(0, 4, 0, 0)
             btn.BackgroundColor3 = SelectedPlayer == p and Theme.Primary or Theme.Surface
             btn.Text = p.Name
             btn.TextColor3 = Color3.new(1, 1, 1)
-            btn.TextSize = 12
+            btn.TextSize = 11
             btn.Font = Enum.Font.Gotham
-            Round(btn, 6)
-            btn.Parent = PlayerListFrame
+            Round(btn, 4)
+            btn.Parent = PlayerList
             
             btn.MouseButton1Click:Connect(function()
                 SelectedPlayer = p
-                UpdatePlayerList()
+                UpdateList()
             end)
+            count = count + 1
         end
     end
-    
-    PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, (#Players:GetPlayers() - 1) * 34)
+    PlayerList.CanvasSize = UDim2.new(0, 0, 0, (count * 34) + 4)
 end
 
-UpdatePlayerList()
-Players.PlayerAdded:Connect(UpdatePlayerList)
-Players.PlayerRemoving:Connect(UpdatePlayerList)
+UpdateList()
+Players.PlayerAdded:Connect(UpdateList)
+Players.PlayerRemoving:Connect(UpdateList)
 
 CreateButton(TPCont, "Teleport to Selected", "primary", function()
     if SelectedPlayer and SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        LocalPlayer.Character.HumanoidRootPart.CFrame = SelectedPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0)
+        LocalPlayer.Character.HumanoidRootPart.CFrame = SelectedPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
     end
 end)
 
-CreateButton(TPCont, "Follow Player", "normal", function()
-    Config.AutoFollow = not Config.AutoFollow
-    if Config.AutoFollow then
-        spawn(function()
-            while Config.AutoFollow and SelectedPlayer do
-                if SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    LocalPlayer.Character.Humanoid:MoveTo(SelectedPlayer.Character.HumanoidRootPart.Position)
-                end
-                wait(0.2)
-            end
-        end)
-    end
-end)
+-- 5. ESP Card
+local ESPCard, ESPCont = CreateCard("VISUALS (ESP)", 5)
+ESPCard.Parent = ContentFrame
 
--- ESP
-local ESPCont = CreateCard("ESP PLAYER")
 local ESPFolder = Instance.new("Folder")
+ESPFolder.Name = "ESP_Folder"
 ESPFolder.Parent = CoreGui
 
-CreateToggle(ESPCont, "Enable ESP", function(enabled)
+local espConnections = {}
+
+CreateToggle(ESPCont, "Enable Player ESP", function(enabled)
     Config.ESP = enabled
     if enabled then
-        for _, p in pairs(Players:GetPlayers()) do
+        local function addEsp(p)
             if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
                 local esp = Instance.new("BillboardGui")
                 esp.AlwaysOnTop = true
-                esp.Size = UDim2.new(0, 120, 0, 50)
+                esp.Size = UDim2.new(0, 100, 0, 40)
                 esp.StudsOffset = Vector3.new(0, 2.5, 0)
                 esp.Adornee = p.Character.Head
+                esp.Name = "ESP_" .. p.Name
                 
                 local bg = Instance.new("Frame")
                 bg.Size = UDim2.new(1, 0, 1, 0)
                 bg.BackgroundColor3 = Theme.Primary
-                bg.BackgroundTransparency = 0.7
-                Round(bg, 8)
+                bg.BackgroundTransparency = 0.6
+                Round(bg, 6)
                 bg.Parent = esp
                 
-                local name = Instance.new("TextLabel")
-                name.Size = UDim2.new(1, 0, 0.6, 0)
-                name.BackgroundTransparency = 1
-                name.Text = p.Name
-                name.TextColor3 = Color3.new(1, 1, 1)
-                name.TextSize = 13
-                name.Font = Enum.Font.GothamBold
-                name.Parent = bg
-                
-                local dist = Instance.new("TextLabel")
-                dist.Size = UDim2.new(1, 0, 0.4, 0)
-                dist.Position = UDim2.new(0, 0, 0.6, 0)
-                dist.BackgroundTransparency = 1
-                dist.Text = "0m"
-                dist.TextColor3 = Color3.fromRGB(220, 220, 220)
-                dist.TextSize = 10
-                dist.Font = Enum.Font.Gotham
-                dist.Parent = bg
+                local txt = Instance.new("TextLabel")
+                txt.Size = UDim2.new(1, 0, 1, 0)
+                txt.BackgroundTransparency = 1
+                txt.Text = p.Name
+                txt.TextColor3 = Color3.new(1, 1, 1)
+                txt.TextSize = 12
+                txt.Font = Enum.Font.GothamBold
+                txt.Parent = bg
                 
                 esp.Parent = ESPFolder
+                espConnections[p] = esp
                 
-                spawn(function()
-                    while Config.ESP and wait(0.5) do
-                        if p.Character and p.Character:FindFirstChild("Head") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
-                            local d = (LocalPlayer.Character.Head.Position - p.Character.Head.Position).Magnitude
-                            dist.Text = math.floor(d) .. "m"
+                p.CharacterAdded:Connect(function()
+                    if Config.ESP and espConnections[p] then
+                        wait(1)
+                        if p.Character and p.Character:FindFirstChild("Head") then
+                            esp.Adornee = p.Character.Head
                         end
                     end
                 end)
             end
         end
+        
+        for _, p in pairs(Players:GetPlayers()) do addEsp(p) end
+        
+        Players.PlayerAdded:Connect(addEsp)
+        Players.PlayerRemoving:Connect(function(p)
+            if espConnections[p] then espConnections[p]:Destroy() end
+            espConnections[p] = nil
+        end)
+        
     else
         ESPFolder:ClearAllChildren()
+        for _, conn in pairs(espConnections) do conn:Destroy() end
+        espConnections = {}
     end
 end)
 
--- God Mode
-local GodCont = CreateCard("GOD MODE")
+-- 6. God Mode Card
+local GodCard, GodCont = CreateCard("GOD MODE", 6)
+GodCard.Parent = ContentFrame
+
 CreateToggle(GodCont, "Enable God Mode", function(enabled)
     Config.GodMode = enabled
     spawn(function()
-        while Config.GodMode and wait(0.5) do
+        while Config.GodMode and wait(0.2) do
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
                 LocalPlayer.Character.Humanoid.Health = LocalPlayer.Character.Humanoid.MaxHealth
             end
         end
-    end
+    end)
 end)
 
-CreateButton(GodCont, "Heal Instantly", "primary", function()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.Health = LocalPlayer.Character.Humanoid.MaxHealth
-    end
-end)
+-- ========== CONTROLS & DRAGGING ==========
 
--- Extra
-local ExtraCont = CreateCard("EXTRA")
-CreateButton(ExtraCont, "Rejoin Server", "normal", function()
-    TeleportService:Teleport(game.PlaceId, LocalPlayer)
-end)
-
--- ========== CONTROLS ==========
-
--- Drag
 local dragging, dragStart, startPos = false, nil, nil
 
 TopBar.InputBegan:Connect(function(input)
@@ -937,29 +984,30 @@ end)
 -- Minimize
 MinBtn.MouseButton1Click:Connect(function()
     Tween(MainFrame, {Size = UDim2.new(0, 340, 0, 0)}, 0.3)
-    wait(0.3)
+    task.wait(0.3)
     MainFrame.Visible = false
     OrbButton.Visible = true
-    Tween(OrbButton, {Size = UDim2.new(0, 55, 0, 55)}, 0.3)
+    Tween(OrbButton, {Size = UDim2.new(0, 50, 0, 50)}, 0.3)
 end)
 
 OrbButton.MouseButton1Click:Connect(function()
     OrbButton.Visible = false
     MainFrame.Visible = true
-    Tween(MainFrame, {Size = UDim2.new(0, 340, 0, 450)}, 0.3)
+    Tween(MainFrame, {Size = UDim2.new(0, 340, 0, 480)}, 0.3, Enum.EasingStyle.Back)
 end)
 
 -- Close
 CloseBtn.MouseButton1Click:Connect(function()
     Tween(MainFrame, {Position = UDim2.new(MainFrame.Position.X.Scale, MainFrame.Position.X.Offset, 1.5, 0)}, 0.3)
-    wait(0.3)
+    task.wait(0.3)
     ScreenGui:Destroy()
-    MobileGui:Destroy()
 end)
 
--- Intro Animation
+-- Intro Animation for Main GUI
 MainFrame.Size = UDim2.new(0, 0, 0, 0)
-wait(0.1)
-Tween(MainFrame, {Size = UDim2.new(0, 340, 0, 450)}, 0.5, Enum.EasingStyle.Back)
+task.wait(0.1)
+Tween(MainFrame, {Size = UDim2.new(0, 340, 0, 480)}, 0.6, Enum.EasingStyle.Back)
 
-print("✅ AP-NEXTGEN1 v4.0 Loaded Successfully!")
+print("✅ AP-NEXTGEN v3.2 Loaded Successfully!")
+print("🎮 Virtual Fly Controller added.")
+print("📜 Scrolling fixed.")
