@@ -1,15 +1,8 @@
 --[[
-    AP-NEXTGEN HUB v5.0 ULTIMATE
-    HD Professional UI | All Bugs Fixed | Feature Complete
-    Created by: APTECH
+    AP-NEXTGEN HUB v4.1 FINAL FIX
+    Perfect Scroll | Real Fly Controls | Unlock Zoom
+    Opening: WELCOME TO AP-NEXTGEN1
 ]]
-
--- Anti-duplicate detection
-if getgenv().APNEXTGEN_LOADED then
-    warn("AP-NEXTGEN already loaded!")
-    return
-end
-getgenv().APNEXTGEN_LOADED = true
 
 -- Services
 local Players = game:GetService("Players")
@@ -18,11 +11,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
-local Lighting = game:GetService("Lighting")
-local TeleportService = game:GetService("TeleportService")
-local VirtualUser = game:GetService("VirtualUser")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local StarterGui = game:GetService("StarterGui")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -35,42 +24,28 @@ end
 -- Config
 local Config = {
     Speed = 16,
-    FlySpeed = 100,
+    FlySpeed = 50,
     GodMode = false,
-    GodModeType = "Gen1", -- Gen1 or Gen2
     Noclip = false,
     Flying = false,
     ESP = false,
     AutoFollow = false,
-    AutoHeal = false,
-    FullBright = false,
-    AntiAFK = false,
-    FPSBoost = false,
-    CoinVisual = 0
+    MobileFly = false,
+    ZoomUnlock = false
 }
 
--- State
-local States = {
-    FollowingPlayer = nil,
-    ESPFolder = nil,
-    NoclipConnection = nil,
-    GodConnection = nil,
-    FlyConnection = nil,
-    BrightnessConnection = nil
-}
-
--- Premium Theme
+-- Theme
 local Theme = {
-    Background = Color3.fromRGB(12, 12, 18),
-    Surface = Color3.fromRGB(22, 22, 32),
-    SurfaceLight = Color3.fromRGB(35, 35, 48),
-    Primary = Color3.fromRGB(0, 212, 255),
-    Secondary = Color3.fromRGB(157, 78, 221),
-    Success = Color3.fromRGB(0, 255, 136),
-    Warning = Color3.fromRGB(255, 200, 64),
-    Error = Color3.fromRGB(255, 71, 87),
+    Background = Color3.fromRGB(8, 8, 12),
+    Surface = Color3.fromRGB(18, 18, 25),
+    SurfaceLight = Color3.fromRGB(28, 28, 38),
+    Primary = Color3.fromRGB(0, 200, 255),
+    Secondary = Color3.fromRGB(140, 100, 255),
+    Success = Color3.fromRGB(0, 255, 150),
+    Error = Color3.fromRGB(255, 70, 90),
+    Warning = Color3.fromRGB(255, 200, 50),
     Text = Color3.fromRGB(255, 255, 255),
-    TextMuted = Color3.fromRGB(170, 170, 190)
+    TextMuted = Color3.fromRGB(160, 160, 180)
 }
 
 -- Utility
@@ -80,225 +55,168 @@ end
 
 local function Round(parent, rad)
     local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, rad or 10)
+    c.CornerRadius = UDim.new(0, rad or 8)
     c.Parent = parent
     return c
 end
 
-local function Shadow(parent, size)
-    local s = Instance.new("ImageLabel")
-    s.Size = UDim2.new(1, size or 40, 1, size or 40)
-    s.Position = UDim2.new(0.5, 0, 0.5, 0)
-    s.AnchorPoint = Vector2.new(0.5, 0.5)
-    s.BackgroundTransparency = 1
-    s.Image = "rbxassetid://6015897843"
-    s.ImageColor3 = Color3.new(0, 0, 0)
-    s.ImageTransparency = 0.6
-    s.ScaleType = Enum.ScaleType.Slice
-    s.SliceCenter = Rect.new(49, 49, 450, 450)
-    s.ZIndex = parent.ZIndex - 1
-    s.Parent = parent
-    return s
-end
-
 -- ScreenGui
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "APNEXTGEN_ULTIMATE"
+ScreenGui.Name = "APNEXTGEN_FINAL"
 ScreenGui.Parent = CoreGui
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
-ScreenGui.DisplayOrder = 999
 
--- ========== OPENING ANIMATION (SMOOTH) ==========
+-- ========== OPENING ANIMATION ==========
 local IntroGui = Instance.new("ScreenGui")
 IntroGui.Name = "Intro"
 IntroGui.Parent = CoreGui
-IntroGui.DisplayOrder = 10000
+IntroGui.DisplayOrder = 9999
 
 local IntroFrame = Instance.new("Frame")
 IntroFrame.Size = UDim2.new(1, 0, 1, 0)
-IntroFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 8)
+IntroFrame.BackgroundColor3 = Color3.new(0, 0, 0)
 IntroFrame.BorderSizePixel = 0
 IntroFrame.Parent = IntroGui
 
--- Animated gradient background
-local Gradient = Instance.new("UIGradient")
-Gradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(8, 8, 15)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(20, 20, 35)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 15))
+local IntroGradient = Instance.new("UIGradient")
+IntroGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(5, 5, 10)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(15, 15, 30)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(5, 5, 10))
 })
-Gradient.Rotation = 45
-Gradient.Parent = IntroFrame
+IntroGradient.Rotation = 90
+IntroGradient.Parent = IntroFrame
 
--- Animated gradient shift
-spawn(function()
-    while IntroFrame.Parent do
-        Gradient.Rotation = Gradient.Rotation + 0.5
-        wait(0.05)
-    end
-end)
-
--- Particles effect
-for i = 1, 20 do
-    local particle = Instance.new("Frame")
-    particle.Size = UDim2.new(0, math.random(2, 6), 0, math.random(2, 6))
-    particle.Position = UDim2.new(math.random(), 0, math.random(), 0)
-    particle.BackgroundColor3 = Theme.Primary
-    particle.BackgroundTransparency = math.random(0.5, 0.9)
-    particle.BorderSizePixel = 0
-    Round(particle, 10)
-    particle.Parent = IntroFrame
-    
-    spawn(function()
-        while particle.Parent do
-            Tween(particle, {Position = UDim2.new(particle.Position.X.Scale, math.random(-50, 50), particle.Position.Y.Scale - 0.1, 0)}, math.random(3, 6))
-            wait(math.random(3, 6))
-            particle.Position = UDim2.new(math.random(), 0, 1.1, 0)
-        end
-    end)
-end
-
--- Main Title with glow
-local TitleContainer = Instance.new("Frame")
-TitleContainer.Size = UDim2.new(0, 600, 0, 150)
-TitleContainer.Position = UDim2.new(0.5, -300, 0.4, -75)
-TitleContainer.BackgroundTransparency = 1
-TitleContainer.Parent = IntroFrame
-
-local GlowBehind = Instance.new("ImageLabel")
-GlowBehind.Size = UDim2.new(1.5, 0, 1.5, 0)
-GlowBehind.Position = UDim2.new(0.5, 0, 0.5, 0)
-GlowBehind.AnchorPoint = Vector2.new(0.5, 0.5)
-GlowBehind.BackgroundTransparency = 1
-GlowBehind.Image = "rbxassetid://6015897843"
-GlowBehind.ImageColor3 = Theme.Primary
-GlowBehind.ImageTransparency = 0.85
-GlowBehind.ScaleType = Enum.ScaleType.Slice
-GlowBehind.SliceCenter = Rect.new(49, 49, 450, 450)
-GlowBehind.Parent = TitleContainer
+local TextGlow = Instance.new("ImageLabel")
+TextGlow.Size = UDim2.new(0, 600, 0, 200)
+TextGlow.Position = UDim2.new(0.5, -300, 0.4, -100)
+TextGlow.BackgroundTransparency = 1
+TextGlow.Image = "rbxassetid://6015897843"
+TextGlow.ImageColor3 = Theme.Primary
+TextGlow.ImageTransparency = 0.9
+TextGlow.ScaleType = Enum.ScaleType.Slice
+TextGlow.SliceCenter = Rect.new(49, 49, 450, 450)
+TextGlow.Parent = IntroFrame
 
 local MainTitle = Instance.new("TextLabel")
-MainTitle.Size = UDim2.new(1, 0, 0.7, 0)
+MainTitle.Size = UDim2.new(1, 0, 0, 80)
+MainTitle.Position = UDim2.new(0, 0, 0.35, 0)
 MainTitle.BackgroundTransparency = 1
 MainTitle.Text = ""
 MainTitle.TextColor3 = Theme.Primary
-MainTitle.TextSize = 56
+MainTitle.TextSize = 52
 MainTitle.Font = Enum.Font.GothamBlack
-MainTitle.TextStrokeTransparency = 0.9
+MainTitle.TextStrokeTransparency = 0.8
 MainTitle.TextStrokeColor3 = Color3.new(0, 0, 0)
-MainTitle.Parent = TitleContainer
+MainTitle.Parent = IntroFrame
 
 local SubTitle = Instance.new("TextLabel")
-SubTitle.Size = UDim2.new(1, 0, 0.3, 0)
-SubTitle.Position = UDim2.new(0, 0, 0.7, 0)
+SubTitle.Size = UDim2.new(1, 0, 0, 40)
+SubTitle.Position = UDim2.new(0, 0, 0.52, 0)
 SubTitle.BackgroundTransparency = 1
 SubTitle.Text = ""
 SubTitle.TextColor3 = Theme.TextMuted
-SubTitle.TextSize = 18
+SubTitle.TextSize = 20
 SubTitle.Font = Enum.Font.Gotham
-SubTitle.TextStrokeTransparency = 0.95
+SubTitle.TextStrokeTransparency = 0.9
 SubTitle.TextStrokeColor3 = Color3.new(0, 0, 0)
-SubTitle.Parent = TitleContainer
+SubTitle.Parent = IntroFrame
 
--- Loading bar
-local LoadContainer = Instance.new("Frame")
-LoadContainer.Size = UDim2.new(0, 400, 0, 4)
-LoadContainer.Position = UDim2.new(0.5, -200, 0.65, 0)
-LoadContainer.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-LoadContainer.BorderSizePixel = 0
-Round(LoadContainer, 2)
-LoadContainer.Parent = IntroFrame
+local LoadBg = Instance.new("Frame")
+LoadBg.Size = UDim2.new(0, 350, 0, 3)
+LoadBg.Position = UDim2.new(0.5, -175, 0.65, 0)
+LoadBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+LoadBg.BorderSizePixel = 0
+Round(LoadBg, 2)
+LoadBg.Parent = IntroFrame
 
-local LoadBar = Instance.new("Frame")
-LoadBar.Size = UDim2.new(0, 0, 1, 0)
-LoadBar.BackgroundColor3 = Theme.Primary
-LoadBar.BorderSizePixel = 0
-Round(LoadBar, 2)
-LoadBar.Parent = LoadContainer
+local LoadFill = Instance.new("Frame")
+LoadFill.Size = UDim2.new(0, 0, 1, 0)
+LoadFill.BackgroundColor3 = Theme.Primary
+LoadFill.BorderSizePixel = 0
+Round(LoadFill, 2)
+LoadFill.Parent = LoadBg
 
-local LoadGlow = Instance.new("Frame")
-LoadGlow.Size = UDim2.new(1, 0, 1, 0)
-LoadGlow.BackgroundColor3 = Theme.Primary
-LoadGlow.BackgroundTransparency = 0.5
-LoadGlow.BorderSizePixel = 0
-Round(LoadGlow, 2)
-LoadGlow.Parent = LoadBar
+local LoadGlow = Instance.new("ImageLabel")
+LoadGlow.Size = UDim2.new(1, 20, 1, 10)
+LoadGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
+LoadGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+LoadGlow.BackgroundTransparency = 1
+LoadGlow.Image = "rbxassetid://6015897843"
+LoadGlow.ImageColor3 = Theme.Primary
+LoadGlow.ImageTransparency = 0.7
+LoadGlow.ScaleType = Enum.ScaleType.Slice
+LoadGlow.SliceCenter = Rect.new(49, 49, 450, 450)
+LoadGlow.Parent = LoadFill
 
--- Version
-local VersionLabel = Instance.new("TextLabel")
-VersionLabel.Size = UDim2.new(1, 0, 0, 20)
-VersionLabel.Position = UDim2.new(0, 0, 0.9, 0)
-VersionLabel.BackgroundTransparency = 1
-VersionLabel.Text = "ULTIMATE EDITION v5.0"
-VersionLabel.TextColor3 = Color3.fromRGB(60, 60, 80)
-VersionLabel.TextSize = 12
-VersionLabel.Font = Enum.Font.Gotham
-VersionLabel.Parent = IntroFrame
+local VersionText = Instance.new("TextLabel")
+VersionText.Size = UDim2.new(1, 0, 0, 20)
+VersionText.Position = UDim2.new(0, 0, 0.9, 0)
+VersionText.BackgroundTransparency = 1
+VersionText.Text = "v4.1 PERFECT EDITION"
+VersionText.TextColor3 = Color3.fromRGB(80, 80, 100)
+VersionText.TextSize = 12
+VersionText.Font = Enum.Font.Gotham
+VersionText.Parent = IntroFrame
 
--- Typewriter effect
+-- Typewriter
 local function TypeWrite(label, text, speed)
     for i = 1, #text do
         label.Text = string.sub(text, 1, i)
-        wait(speed or 0.05)
+        wait(speed or 0.06)
     end
 end
 
--- Opening sequence
 spawn(function()
-    wait(0.5)
+    wait(0.3)
     
-    -- Pulse glow
     spawn(function()
-        while GlowBehind.Parent do
-            Tween(GlowBehind, {ImageTransparency = 0.8}, 1)
-            wait(1)
-            Tween(GlowBehind, {ImageTransparency = 0.9}, 1)
-            wait(1)
+        while wait(0.05) do
+            if not IntroFrame.Parent then break end
+            TextGlow.ImageTransparency = 0.8 + math.sin(tick() * 3) * 0.1
         end
     end)
     
-    TypeWrite(MainTitle, "WELCOME TO AP-NEXTGEN1", 0.07)
-    wait(0.3)
+    TypeWrite(MainTitle, "WELCOME TO AP-NEXTGEN1", 0.08)
+    wait(0.4)
     
     SubTitle.TextTransparency = 1
     SubTitle.Text = "professional script by APTECH"
     
-    for i = 1, 15 do
-        SubTitle.TextTransparency = 1 - (i/15)
-        wait(0.02)
+    for i = 1, 10 do
+        SubTitle.TextTransparency = 1 - (i/10)
+        wait(0.03)
     end
     
-    -- Load animation
-    Tween(LoadBar, {Size = UDim2.new(1, 0, 1, 0)}, 1.5, Enum.EasingStyle.Quart)
-    wait(1.6)
+    Tween(LoadFill, {Size = UDim2.new(1, 0, 1, 0)}, 1.2)
+    wait(1.3)
     
-    -- Fade out
-    Tween(IntroFrame, {BackgroundTransparency = 1}, 0.8)
-    Tween(MainTitle, {TextTransparency = 1, TextStrokeTransparency = 1}, 0.6)
-    Tween(SubTitle, {TextTransparency = 1, TextStrokeTransparency = 1}, 0.6)
-    Tween(LoadContainer, {BackgroundTransparency = 1}, 0.5)
-    Tween(LoadBar, {BackgroundTransparency = 1}, 0.5)
-    Tween(GlowBehind, {ImageTransparency = 1}, 0.5)
+    Tween(IntroFrame, {BackgroundTransparency = 1}, 0.6)
+    Tween(MainTitle, {TextTransparency = 1, TextStrokeTransparency = 1}, 0.5)
+    Tween(SubTitle, {TextTransparency = 1, TextStrokeTransparency = 1}, 0.5)
+    Tween(LoadBg, {BackgroundTransparency = 1}, 0.5)
+    Tween(LoadFill, {BackgroundTransparency = 1}, 0.5)
+    Tween(TextGlow, {ImageTransparency = 1}, 0.5)
+    wait(0.6)
     
-    wait(0.8)
     IntroGui:Destroy()
 end)
 
-wait(3)
+wait(2.8)
 
--- ========== MAIN GUI (HD PROFESSIONAL) ==========
+-- ========== MAIN GUI ==========
 
--- Minimize Orb
+-- Minimized Orb
 local OrbButton = Instance.new("TextButton")
 OrbButton.Name = "Orb"
-OrbButton.Size = UDim2.new(0, 60, 0, 60)
-OrbButton.Position = UDim2.new(0, 20, 0.5, -30)
+OrbButton.Size = UDim2.new(0, 55, 0, 55)
+OrbButton.Position = UDim2.new(0, 15, 0.5, -27)
 OrbButton.BackgroundColor3 = Theme.Surface
 OrbButton.Text = ""
 OrbButton.Visible = false
 OrbButton.ZIndex = 100
-Round(OrbButton, 30)
+Round(OrbButton, 28)
 
 local OrbGradient = Instance.new("UIGradient")
 OrbGradient.Color = ColorSequence.new({
@@ -310,7 +228,7 @@ OrbGradient.Parent = OrbButton
 
 local OrbStroke = Instance.new("UIStroke")
 OrbStroke.Color = Theme.Primary
-OrbStroke.Thickness = 3
+OrbStroke.Thickness = 2
 OrbStroke.Parent = OrbButton
 
 local OrbIcon = Instance.new("TextLabel")
@@ -318,48 +236,72 @@ OrbIcon.Size = UDim2.new(1, 0, 1, 0)
 OrbIcon.BackgroundTransparency = 1
 OrbIcon.Text = "G1"
 OrbIcon.TextColor3 = Color3.new(1, 1, 1)
-OrbIcon.TextSize = 24
+OrbIcon.TextSize = 22
 OrbIcon.Font = Enum.Font.GothamBlack
 OrbIcon.ZIndex = 101
 OrbIcon.Parent = OrbButton
 
-Shadow(OrbButton, 30)
+local OrbGlow = Instance.new("ImageLabel")
+OrbGlow.Size = UDim2.new(1.5, 0, 1.5, 0)
+OrbGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
+OrbGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+OrbGlow.BackgroundTransparency = 1
+OrbGlow.Image = "rbxassetid://6015897843"
+OrbGlow.ImageColor3 = Theme.Primary
+OrbGlow.ImageTransparency = 0.6
+OrbGlow.ScaleType = Enum.ScaleType.Slice
+OrbGlow.SliceCenter = Rect.new(49, 49, 450, 450)
+OrbGlow.ZIndex = 99
+OrbGlow.Parent = OrbButton
+
 OrbButton.Parent = ScreenGui
 
--- Main Frame (HD Layout)
+-- Main Frame
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "Main"
-MainFrame.Size = UDim2.new(0, 400, 0, 500)
-MainFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
+MainFrame.Size = UDim2.new(0, 340, 0, 450)
+MainFrame.Position = UDim2.new(0.5, -170, 0.5, -225)
 MainFrame.BackgroundColor3 = Theme.Background
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
-Round(MainFrame, 20)
+Round(MainFrame, 16)
 
-Shadow(MainFrame, 60)
+local MainGlow = Instance.new("ImageLabel")
+MainGlow.Size = UDim2.new(1, 50, 1, 50)
+MainGlow.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainGlow.AnchorPoint = Vector2.new(0.5, 0.5)
+MainGlow.BackgroundTransparency = 1
+MainGlow.Image = "rbxassetid://6015897843"
+MainGlow.ImageColor3 = Theme.Primary
+MainGlow.ImageTransparency = 0.85
+MainGlow.ScaleType = Enum.ScaleType.Slice
+MainGlow.SliceCenter = Rect.new(49, 49, 450, 450)
+MainGlow.ZIndex = -1
+MainGlow.Parent = MainFrame
+
 MainFrame.Parent = ScreenGui
 
 -- Top Bar
 local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 55)
+TopBar.Size = UDim2.new(1, 0, 0, 50)
 TopBar.BackgroundColor3 = Theme.Surface
 TopBar.BorderSizePixel = 0
 TopBar.Parent = MainFrame
-Round(TopBar, 20)
+Round(TopBar, 16)
 
 local TopFix = Instance.new("Frame")
-TopFix.Size = UDim2.new(1, 0, 0, 25)
-TopFix.Position = UDim2.new(0, 0, 1, -25)
+TopFix.Size = UDim2.new(1, 0, 0, 20)
+TopFix.Position = UDim2.new(0, 0, 1, -20)
 TopFix.BackgroundColor3 = Theme.Surface
 TopFix.BorderSizePixel = 0
 TopFix.Parent = TopBar
 
 -- Logo
 local LogoFrame = Instance.new("Frame")
-LogoFrame.Size = UDim2.new(0, 36, 0, 36)
-LogoFrame.Position = UDim2.new(0, 15, 0.5, -18)
+LogoFrame.Size = UDim2.new(0, 32, 0, 32)
+LogoFrame.Position = UDim2.new(0, 12, 0.5, -16)
 LogoFrame.BackgroundColor3 = Theme.Primary
-Round(LogoFrame, 10)
+Round(LogoFrame, 8)
 LogoFrame.Parent = TopBar
 
 local LogoText = Instance.new("TextLabel")
@@ -367,14 +309,14 @@ LogoText.Size = UDim2.new(1, 0, 1, 0)
 LogoText.BackgroundTransparency = 1
 LogoText.Text = "G1"
 LogoText.TextColor3 = Color3.new(1, 1, 1)
-LogoText.TextSize = 16
+LogoText.TextSize = 14
 LogoText.Font = Enum.Font.GothamBlack
 LogoText.Parent = LogoFrame
 
--- Title Group
+-- Title
 local TitleGroup = Instance.new("Frame")
-TitleGroup.Size = UDim2.new(0, 200, 1, 0)
-TitleGroup.Position = UDim2.new(0, 60, 0, 0)
+TitleGroup.Size = UDim2.new(0, 180, 1, 0)
+TitleGroup.Position = UDim2.new(0, 52, 0, 0)
 TitleGroup.BackgroundTransparency = 1
 TitleGroup.Parent = TopBar
 
@@ -384,7 +326,7 @@ TitleText.Position = UDim2.new(0, 0, 0.1, 0)
 TitleText.BackgroundTransparency = 1
 TitleText.Text = "AP-NEXTGEN"
 TitleText.TextColor3 = Theme.Text
-TitleText.TextSize = 18
+TitleText.TextSize = 16
 TitleText.Font = Enum.Font.GothamBold
 TitleText.TextXAlignment = Enum.TextXAlignment.Left
 TitleText.Parent = TitleGroup
@@ -393,97 +335,90 @@ local SubText = Instance.new("TextLabel")
 SubText.Size = UDim2.new(1, 0, 0.4, 0)
 SubText.Position = UDim2.new(0, 0, 0.55, 0)
 SubText.BackgroundTransparency = 1
-SubText.Text = "ULTIMATE HUB"
+SubText.Text = "PREMIUM HUB"
 SubText.TextColor3 = Theme.Primary
-SubText.TextSize = 11
+SubText.TextSize = 10
 SubText.Font = Enum.Font.Gotham
 SubText.TextXAlignment = Enum.TextXAlignment.Left
 SubText.Parent = TitleGroup
 
 -- Controls
 local MinBtn = Instance.new("TextButton")
-MinBtn.Size = UDim2.new(0, 32, 0, 32)
-MinBtn.Position = UDim2.new(1, -75, 0.5, -16)
+MinBtn.Size = UDim2.new(0, 28, 0, 28)
+MinBtn.Position = UDim2.new(1, -68, 0.5, -14)
 MinBtn.BackgroundColor3 = Theme.SurfaceLight
 MinBtn.Text = "−"
 MinBtn.TextColor3 = Theme.TextMuted
-MinBtn.TextSize = 24
+MinBtn.TextSize = 20
 MinBtn.Font = Enum.Font.GothamBold
-Round(MinBtn, 8)
+Round(MinBtn, 6)
 MinBtn.Parent = TopBar
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 32, 0, 32)
-CloseBtn.Position = UDim2.new(1, -40, 0.5, -16)
+CloseBtn.Size = UDim2.new(0, 28, 0, 28)
+CloseBtn.Position = UDim2.new(1, -36, 0.5, -14)
 CloseBtn.BackgroundColor3 = Theme.Error
 CloseBtn.Text = "×"
 CloseBtn.TextColor3 = Color3.new(1, 1, 1)
-CloseBtn.TextSize = 24
+CloseBtn.TextSize = 20
 CloseBtn.Font = Enum.Font.GothamBold
-Round(CloseBtn, 8)
+Round(CloseBtn, 6)
 CloseBtn.Parent = TopBar
 
--- Content (FIXED SCROLL)
-local ContentFrame = Instance.new("ScrollingFrame")
-ContentFrame.Name = "Content"
-ContentFrame.Size = UDim2.new(1, -30, 1, -75)
-ContentFrame.Position = UDim2.new(0, 15, 0, 65)
-ContentFrame.BackgroundTransparency = 1
-ContentFrame.BorderSizePixel = 0
-ContentFrame.ScrollBarThickness = 6
-ContentFrame.ScrollBarImageColor3 = Theme.Primary
-ContentFrame.ScrollBarImageTransparency = 0.3
-ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-ContentFrame.ScrollingDirection = Enum.ScrollingDirection.Y
-ContentFrame.Parent = MainFrame
+-- FIXED SCROLLABLE CONTENT
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Name = "Content"
+ScrollFrame.Size = UDim2.new(1, -20, 1, -70)
+ScrollFrame.Position = UDim2.new(0, 10, 0, 60)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.BorderSizePixel = 0
+ScrollFrame.ScrollBarThickness = 6
+ScrollFrame.ScrollBarImageColor3 = Theme.Primary
+ScrollFrame.ScrollBarImageTransparency = 0.4
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 1000)
+ScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+ScrollFrame.ScrollingDirection = Enum.ScrollingDirection.Y
+ScrollFrame.Parent = MainFrame
 
-local ContentLayout = Instance.new("UIListLayout")
-ContentLayout.Padding = UDim.new(0, 12)
-ContentLayout.Parent = ContentFrame
+local ContentList = Instance.new("UIListLayout")
+ContentList.Padding = UDim.new(0, 10)
+ContentList.Parent = ScrollFrame
+
+-- Update canvas size
+ContentList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ScrollFrame.CanvasSize = UDim2.new(0, 0, 0, ContentList.AbsoluteContentSize.Y + 20)
+end)
 
 -- Components
-local function CreateCard(title, icon)
+local function CreateCard(title)
     local Card = Instance.new("Frame")
     Card.Size = UDim2.new(1, 0, 0, 0)
     Card.AutomaticSize = Enum.AutomaticSize.Y
     Card.BackgroundColor3 = Theme.Surface
-    Card.BackgroundTransparency = 0.3
+    Card.BackgroundTransparency = 0.2
     Card.BorderSizePixel = 0
-    Round(Card, 14)
+    Round(Card, 12)
     
     local Stroke = Instance.new("UIStroke")
-    Stroke.Color = Color3.fromRGB(45, 45, 60)
-    Stroke.Thickness = 1.5
+    Stroke.Color = Color3.fromRGB(40, 40, 50)
+    Stroke.Thickness = 1
     Stroke.Parent = Card
     
-    local Header = Instance.new("Frame")
-    Header.Size = UDim2.new(1, 0, 0, 38)
-    Header.BackgroundTransparency = 1
-    Header.Parent = Card
-    
-    local IconLabel = Instance.new("TextLabel")
-    IconLabel.Size = UDim2.new(0, 30, 0, 30)
-    IconLabel.Position = UDim2.new(0, 12, 0, 4)
-    IconLabel.BackgroundTransparency = 1
-    IconLabel.Text = icon or "⚡"
-    IconLabel.TextSize = 20
-    IconLabel.Parent = Header
-    
-    local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Size = UDim2.new(1, -50, 1, 0)
-    TitleLabel.Position = UDim2.new(0, 45, 0, 0)
-    TitleLabel.BackgroundTransparency = 1
-    TitleLabel.Text = title
-    TitleLabel.TextColor3 = Theme.Primary
-    TitleLabel.TextSize = 14
-    TitleLabel.Font = Enum.Font.GothamBold
-    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    TitleLabel.Parent = Header
+    local CardTitle = Instance.new("TextLabel")
+    CardTitle.Size = UDim2.new(1, -20, 0, 32)
+    CardTitle.Position = UDim2.new(0, 12, 0, 8)
+    CardTitle.BackgroundTransparency = 1
+    CardTitle.Text = title
+    CardTitle.TextColor3 = Theme.Primary
+    CardTitle.TextSize = 13
+    CardTitle.Font = Enum.Font.GothamBold
+    CardTitle.TextXAlignment = Enum.TextXAlignment.Left
+    CardTitle.Parent = Card
     
     local Line = Instance.new("Frame")
     Line.Size = UDim2.new(1, -24, 0, 1)
     Line.Position = UDim2.new(0, 12, 0, 36)
-    Line.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+    Line.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
     Line.BorderSizePixel = 0
     Line.Parent = Card
     
@@ -495,49 +430,49 @@ local function CreateCard(title, icon)
     Container.Parent = Card
     
     local List = Instance.new("UIListLayout")
-    List.Padding = UDim.new(0, 10)
+    List.Padding = UDim.new(0, 8)
     List.Parent = Container
     
     local Pad = Instance.new("UIPadding")
-    Pad.PaddingBottom = UDim.new(0, 15)
+    Pad.PaddingBottom = UDim.new(0, 12)
     Pad.Parent = Card
     
-    Card.Parent = ContentFrame
+    Card.Parent = ScrollFrame
     return Container
 end
 
 local function CreateToggle(parent, text, callback)
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(1, 0, 0, 38)
+    Frame.Size = UDim2.new(1, 0, 0, 36)
     Frame.BackgroundTransparency = 1
     Frame.Parent = parent
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0.65, 0, 1, 0)
+    Label.Size = UDim2.new(0.7, 0, 1, 0)
     Label.BackgroundTransparency = 1
     Label.Text = text
     Label.TextColor3 = Theme.Text
-    Label.TextSize = 13
+    Label.TextSize = 12
     Label.Font = Enum.Font.Gotham
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
     
     local ToggleBtn = Instance.new("TextButton")
-    ToggleBtn.Size = UDim2.new(0, 52, 0, 26)
-    ToggleBtn.Position = UDim2.new(1, -52, 0.5, -13)
-    ToggleBtn.BackgroundColor3 = Color3.fromRGB(55, 55, 70)
+    ToggleBtn.Size = UDim2.new(0, 48, 0, 24)
+    ToggleBtn.Position = UDim2.new(1, -48, 0.5, -12)
+    ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
     ToggleBtn.Text = "OFF"
     ToggleBtn.TextColor3 = Theme.TextMuted
-    ToggleBtn.TextSize = 11
+    ToggleBtn.TextSize = 10
     ToggleBtn.Font = Enum.Font.GothamBold
-    Round(ToggleBtn, 13)
+    Round(ToggleBtn, 12)
     ToggleBtn.Parent = Frame
     
     local enabled = false
     ToggleBtn.MouseButton1Click:Connect(function()
         enabled = not enabled
         ToggleBtn.Text = enabled and "ON" or "OFF"
-        Tween(ToggleBtn, {BackgroundColor3 = enabled and Theme.Success or Color3.fromRGB(55, 55, 70)}, 0.2)
+        Tween(ToggleBtn, {BackgroundColor3 = enabled and Theme.Success or Color3.fromRGB(60, 60, 70)}, 0.2)
         Tween(ToggleBtn, {TextColor3 = enabled and Color3.new(1,1,1) or Theme.TextMuted}, 0.2)
         if callback then callback(enabled) end
     end)
@@ -547,51 +482,51 @@ end
 
 local function CreateSlider(parent, text, min, max, default, callback)
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(1, 0, 0, 55)
+    Frame.Size = UDim2.new(1, 0, 0, 50)
     Frame.BackgroundTransparency = 1
     Frame.Parent = parent
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(0.6, 0, 0, 22)
+    Label.Size = UDim2.new(0.6, 0, 0, 20)
     Label.BackgroundTransparency = 1
     Label.Text = text
     Label.TextColor3 = Theme.Text
-    Label.TextSize = 13
+    Label.TextSize = 12
     Label.Font = Enum.Font.Gotham
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
     
     local ValueBox = Instance.new("TextBox")
-    ValueBox.Size = UDim2.new(0, 55, 0, 24)
-    ValueBox.Position = UDim2.new(1, -55, 0, 0)
+    ValueBox.Size = UDim2.new(0, 50, 0, 22)
+    ValueBox.Position = UDim2.new(1, -50, 0, 0)
     ValueBox.BackgroundColor3 = Theme.SurfaceLight
     ValueBox.Text = tostring(default)
     ValueBox.TextColor3 = Theme.Primary
-    ValueBox.TextSize = 12
+    ValueBox.TextSize = 11
     ValueBox.Font = Enum.Font.GothamBold
-    Round(ValueBox, 6)
+    Round(ValueBox, 4)
     ValueBox.Parent = Frame
     
     local Track = Instance.new("Frame")
-    Track.Size = UDim2.new(1, 0, 0, 5)
-    Track.Position = UDim2.new(0, 0, 0, 40)
-    Track.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+    Track.Size = UDim2.new(1, 0, 0, 4)
+    Track.Position = UDim2.new(0, 0, 0, 36)
+    Track.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     Track.BorderSizePixel = 0
-    Round(Track, 3)
+    Round(Track, 2)
     Track.Parent = Frame
     
     local Fill = Instance.new("Frame")
     Fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
     Fill.BackgroundColor3 = Theme.Primary
     Fill.BorderSizePixel = 0
-    Round(Fill, 3)
+    Round(Fill, 2)
     Fill.Parent = Track
     
     local Knob = Instance.new("Frame")
-    Knob.Size = UDim2.new(0, 16, 0, 16)
-    Knob.Position = UDim2.new((default-min)/(max-min), -8, 0.5, -8)
+    Knob.Size = UDim2.new(0, 14, 0, 14)
+    Knob.Position = UDim2.new((default-min)/(max-min), -7, 0.5, -7)
     Knob.BackgroundColor3 = Color3.new(1, 1, 1)
-    Round(Knob, 8)
+    Round(Knob, 7)
     Knob.Parent = Track
     
     local dragging = false
@@ -601,7 +536,7 @@ local function CreateSlider(parent, text, min, max, default, callback)
         local val = math.floor(min + (max - min) * pos)
         ValueBox.Text = tostring(val)
         Fill.Size = UDim2.new(pos, 0, 1, 0)
-        Knob.Position = UDim2.new(pos, -8, 0.5, -8)
+        Knob.Position = UDim2.new(pos, -7, 0.5, -7)
         if callback then callback(val) end
     end
     
@@ -627,7 +562,7 @@ local function CreateSlider(parent, text, min, max, default, callback)
         ValueBox.Text = tostring(val)
         local pos = (val - min) / (max - min)
         Fill.Size = UDim2.new(pos, 0, 1, 0)
-        Knob.Position = UDim2.new(pos, -8, 0.5, -8)
+        Knob.Position = UDim2.new(pos, -7, 0.5, -7)
         if callback then callback(val) end
     end)
     
@@ -636,418 +571,447 @@ end
 
 local function CreateButton(parent, text, style, callback)
     local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(1, 0, 0, 38)
-    Btn.BackgroundColor3 = style == "primary" and Theme.Primary or (style == "danger" and Theme.Error or Theme.SurfaceLight)
+    Btn.Size = UDim2.new(1, 0, 0, 34)
+    Btn.BackgroundColor3 = style == "primary" and Theme.Primary or Theme.SurfaceLight
     Btn.Text = text
     Btn.TextColor3 = Color3.new(1, 1, 1)
-    Btn.TextSize = 13
+    Btn.TextSize = 12
     Btn.Font = Enum.Font.GothamBold
-    Round(Btn, 8)
+    Round(Btn, 6)
     Btn.Parent = parent
     
     Btn.MouseButton1Click:Connect(function()
-        Tween(Btn, {Size = UDim2.new(0.97, 0, 0, 36)}, 0.1)
+        Tween(Btn, {Size = UDim2.new(0.97, 0, 0, 32)}, 0.1)
         wait(0.1)
-        Tween(Btn, {Size = UDim2.new(1, 0, 0, 38)}, 0.1)
+        Tween(Btn, {Size = UDim2.new(1, 0, 0, 34)}, 0.1)
         if callback then callback() end
     end)
     
     return Btn
 end
 
-local function CreateDropdown(parent, callback)
-    local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(1, 0, 0, 140)
-    Frame.BackgroundTransparency = 1
-    Frame.Parent = parent
-    
-    local List = Instance.new("ScrollingFrame")
-    List.Size = UDim2.new(1, 0, 0, 100)
-    List.BackgroundColor3 = Theme.SurfaceLight
-    List.BackgroundTransparency = 0.4
-    List.BorderSizePixel = 0
-    List.ScrollBarThickness = 4
-    List.ScrollBarImageColor3 = Theme.Primary
-    List.CanvasSize = UDim2.new(0, 0, 0, 0)
-    Round(List, 8)
-    List.Parent = Frame
-    
-    local Layout = Instance.new("UIListLayout")
-    Layout.Padding = UDim.new(0, 4)
-    Layout.Parent = List
-    
-    local selected = nil
-    
-    local function Update()
-        for _, c in pairs(List:GetChildren()) do
-            if c:IsA("TextButton") then c:Destroy() end
-        end
-        
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer then
-                local btn = Instance.new("TextButton")
-                btn.Size = UDim2.new(1, -8, 0, 32)
-                btn.Position = UDim2.new(0, 4, 0, 0)
-                btn.BackgroundColor3 = selected == p and Theme.Primary or Theme.Surface
-                btn.Text = p.Name
-                btn.TextColor3 = Color3.new(1, 1, 1)
-                btn.TextSize = 12
-                btn.Font = Enum.Font.Gotham
-                Round(btn, 6)
-                btn.Parent = List
-                
-                btn.MouseButton1Click:Connect(function()
-                    selected = p
-                    Update()
-                    if callback then callback(p) end
-                end)
-            end
-        end
-        
-        List.CanvasSize = UDim2.new(0, 0, 0, (#Players:GetPlayers() - 1) * 36)
-    end
-    
-    Update()
-    Players.PlayerAdded:Connect(Update)
-    Players.PlayerRemoving:Connect(Update)
-    
-    return Frame, function() return selected end
-end
-
 -- ========== FEATURES ==========
 
--- Movement
-local MoveCard = CreateCard("MOVEMENT", "🏃")
-CreateSlider(MoveCard, "Walk Speed", 16, 500, 50, function(val)
+-- Speed
+local SpeedCont = CreateCard("MOVEMENT SPEED")
+CreateSlider(SpeedCont, "WalkSpeed", 16, 300, 50, function(val)
     Config.Speed = val
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         LocalPlayer.Character.Humanoid.WalkSpeed = val
     end
 end)
 
-CreateButton(MoveCard, "Reset Speed", "normal", function()
+CreateButton(SpeedCont, "Reset Speed", "normal", function()
     Config.Speed = 16
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         LocalPlayer.Character.Humanoid.WalkSpeed = 16
     end
 end)
 
--- Fly System (Using Joystick)
-local FlyCard = CreateCard("FLY MODE", "✈️")
-CreateSlider(FlyCard, "Fly Speed", 10, 300, 100, function(val)
+-- Fly Controls (Main GUI)
+local FlyCont = CreateCard("FLY CONTROL")
+CreateSlider(FlyCont, "Fly Speed", 10, 200, 50, function(val)
     Config.FlySpeed = val
 end)
 
-CreateToggle(FlyCard, "Enable Fly (Use Joystick to Move)", function(enabled)
+CreateToggle(FlyCont, "Enable Fly", function(enabled)
     Config.Flying = enabled
+end)
+
+-- MOBILE FLY GUI (SEPARATE - REAL CONTROLS)
+local MobileFlyGui = Instance.new("ScreenGui")
+MobileFlyGui.Name = "MobileFlyControls"
+MobileFlyGui.Parent = CoreGui
+MobileFlyGui.Enabled = false
+
+local FlyPanel = Instance.new("Frame")
+FlyPanel.Size = UDim2.new(0, 280, 0, 320)
+FlyPanel.Position = UDim2.new(0.5, -140, 0.6, -160)
+FlyPanel.BackgroundColor3 = Theme.Background
+FlyPanel.BackgroundTransparency = 0.1
+FlyPanel.BorderSizePixel = 0
+FlyPanel.Visible = false
+Round(FlyPanel, 20)
+
+local FlyStroke = Instance.new("UIStroke")
+FlyStroke.Color = Theme.Primary
+FlyStroke.Thickness = 2
+FlyStroke.Parent = FlyPanel
+
+FlyPanel.Parent = MobileFlyGui
+
+-- Title
+local FlyTitle = Instance.new("TextLabel")
+FlyTitle.Size = UDim2.new(1, 0, 0, 40)
+FlyTitle.BackgroundTransparency = 1
+FlyTitle.Text = "✈️ FLY CONTROLLER"
+FlyTitle.TextColor3 = Theme.Primary
+FlyTitle.TextSize = 18
+FlyTitle.Font = Enum.Font.GothamBlack
+FlyTitle.Parent = FlyPanel
+
+-- Close Button
+local CloseFlyBtn = Instance.new("TextButton")
+CloseFlyBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseFlyBtn.Position = UDim2.new(1, -40, 0, 10)
+CloseFlyBtn.BackgroundColor3 = Theme.Error
+CloseFlyBtn.Text = "×"
+CloseFlyBtn.TextColor3 = Color3.new(1, 1, 1)
+CloseFlyBtn.TextSize = 20
+CloseFlyBtn.Font = Enum.Font.GothamBold
+Round(CloseFlyBtn, 8)
+CloseFlyBtn.Parent = FlyPanel
+
+-- Speed Display
+local FlySpeedText = Instance.new("TextLabel")
+FlySpeedText.Size = UDim2.new(1, 0, 0, 25)
+FlySpeedText.Position = UDim2.new(0, 0, 0, 35)
+FlySpeedText.BackgroundTransparency = 1
+FlySpeedText.Text = "Speed: 50"
+FlySpeedText.TextColor3 = Theme.TextMuted
+FlySpeedText.TextSize = 14
+FlySpeedText.Font = Enum.Font.GothamBold
+FlySpeedText.Parent = FlyPanel
+
+-- Control Buttons Container
+local ControlsFrame = Instance.new("Frame")
+ControlsFrame.Size = UDim2.new(1, -20, 0, 200)
+ControlsFrame.Position = UDim2.new(0, 10, 0, 65)
+ControlsFrame.BackgroundTransparency = 1
+ControlsFrame.Parent = FlyPanel
+
+-- Create Directional Buttons
+local FlyButtons = {}
+local ActiveDirections = {}
+
+local function CreateFlyButton(name, text, pos, direction)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Size = UDim2.new(0, 60, 0, 60)
+    btn.Position = pos
+    btn.BackgroundColor3 = Theme.SurfaceLight
+    btn.Text = text
+    btn.TextColor3 = Theme.Text
+    btn.TextSize = 28
+    btn.Font = Enum.Font.GothamBlack
+    Round(btn, 12)
+    btn.Parent = ControlsFrame
     
-    if enabled then
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.PlatformStand = true
-        end
-        
-        States.FlyConnection = RunService.Heartbeat:Connect(function()
-            if not Config.Flying then return end
-            if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
-            
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Theme.Primary
+    stroke.Thickness = 2
+    stroke.Parent = btn
+    
+    btn.MouseButton1Down:Connect(function()
+        ActiveDirections[direction] = true
+        Tween(btn, {BackgroundColor3 = Theme.Primary, Size = UDim2.new(0, 55, 0, 55)}, 0.1)
+    end)
+    
+    btn.MouseButton1Up:Connect(function()
+        ActiveDirections[direction] = nil
+        Tween(btn, {BackgroundColor3 = Theme.SurfaceLight, Size = UDim2.new(0, 60, 0, 60)}, 0.1)
+    end)
+    
+    btn.MouseLeave:Connect(function()
+        ActiveDirections[direction] = nil
+        Tween(btn, {BackgroundColor3 = Theme.SurfaceLight, Size = UDim2.new(0, 60, 0, 60)}, 0.1)
+    end)
+    
+    FlyButtons[name] = btn
+    return btn
+end
+
+-- Layout:     [UP]
+--      [LEFT] [DOWN] [RIGHT]
+--              [DN]
+
+CreateFlyButton("Up", "⬆️", UDim2.new(0.5, -30, 0, 0), "Up")
+CreateFlyButton("Forward", "⬆", UDim2.new(0.5, -30, 0, 70), "Forward")
+CreateFlyButton("Left", "⬅", UDim2.new(0, 10, 0, 70), "Left")
+CreateFlyButton("Right", "➡", UDim2.new(1, -70, 0, 70), "Right")
+CreateFlyButton("Back", "⬇", UDim2.new(0.5, -30, 0, 140), "Back")
+CreateFlyButton("Down", "⬇️", UDim2.new(0.5, -30, 1, -60), "Down")
+
+-- Fly Speed Slider in Mobile Panel
+local MobileSpeedTrack = Instance.new("Frame")
+MobileSpeedTrack.Size = UDim2.new(1, -20, 0, 6)
+MobileSpeedTrack.Position = UDim2.new(0, 10, 1, -35)
+MobileSpeedTrack.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+MobileSpeedTrack.BorderSizePixel = 0
+Round(MobileSpeedTrack, 3)
+MobileSpeedTrack.Parent = FlyPanel
+
+local MobileSpeedFill = Instance.new("Frame")
+MobileSpeedFill.Size = UDim2.new(0.3, 0, 1, 0)
+MobileSpeedFill.BackgroundColor3 = Theme.Primary
+MobileSpeedFill.BorderSizePixel = 0
+Round(MobileSpeedFill, 3)
+MobileSpeedFill.Parent = MobileSpeedTrack
+
+-- Open Mobile Fly Button
+CreateButton(FlyCont, "📱 Open Fly Controller", "primary", function()
+    MobileFlyGui.Enabled = not MobileFlyGui.Enabled
+    FlyPanel.Visible = MobileFlyGui.Enabled
+    Config.MobileFly = MobileFlyGui.Enabled
+end)
+
+CloseFlyBtn.MouseButton1Click:Connect(function()
+    MobileFlyGui.Enabled = false
+    FlyPanel.Visible = false
+    Config.MobileFly = false
+end)
+
+-- Fly Logic
+spawn(function()
+    while wait(0.03) do
+        if Config.Flying and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
             local hrp = LocalPlayer.Character.HumanoidRootPart
-            local cam = Camera.CFrame
             local speed = Config.FlySpeed
             
-            -- Get movement from humanoid (joystick)
-            local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
-            if humanoid then
-                local moveDir = humanoid.MoveDirection
-                if moveDir.Magnitude > 0 then
-                    hrp.Velocity = cam.LookVector * moveDir.Z * speed + cam.RightVector * moveDir.X * speed
-                else
-                    hrp.Velocity = Vector3.new(0, 0, 0)
-                end
-                
-                -- Up/Down with space/shift
-                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                    hrp.Velocity = hrp.Velocity + Vector3.new(0, speed, 0)
-                elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
-                    hrp.Velocity = hrp.Velocity - Vector3.new(0, speed, 0)
-                end
+            -- PC Controls (Space/Shift)
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                hrp.Velocity = Vector3.new(hrp.Velocity.X, speed, hrp.Velocity.Z)
+            elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then
+                hrp.Velocity = Vector3.new(hrp.Velocity.X, -speed, hrp.Velocity.Z)
+            else
+                hrp.Velocity = Vector3.new(hrp.Velocity.X, 0, hrp.Velocity.Z)
             end
-        end)
-    else
-        if States.FlyConnection then
-            States.FlyConnection:Disconnect()
-            States.FlyConnection = nil
-        end
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.PlatformStand = false
-            LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+            
+            -- Mobile Controls
+            if ActiveDirections["Up"] then
+                hrp.Velocity = Vector3.new(hrp.Velocity.X, speed, hrp.Velocity.Z)
+            elseif ActiveDirections["Down"] then
+                hrp.Velocity = Vector3.new(hrp.Velocity.X, -speed, hrp.Velocity.Z)
+            end
+            
+            if ActiveDirections["Forward"] then
+                hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -speed/10)
+            elseif ActiveDirections["Back"] then
+                hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, speed/10)
+            end
+            
+            if ActiveDirections["Left"] then
+                hrp.CFrame = hrp.CFrame * CFrame.new(-speed/10, 0, 0)
+            elseif ActiveDirections["Right"] then
+                hrp.CFrame = hrp.CFrame * CFrame.new(speed/10, 0, 0)
+            end
         end
     end
 end)
 
-CreateToggle(FlyCard, "Noclip while Flying", function(enabled)
+-- Noclip
+local NoclipCont = CreateCard("NOCLIP")
+local NoclipConn = nil
+CreateToggle(NoclipCont, "Enable Noclip", function(enabled)
     Config.Noclip = enabled
     if enabled then
-        States.NoclipConnection = RunService.Stepped:Connect(function()
+        NoclipConn = RunService.Stepped:Connect(function()
             if LocalPlayer.Character then
                 for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
-                    end
+                    if part:IsA("BasePart") then part.CanCollide = false end
                 end
             end
         end)
     else
-        if States.NoclipConnection then
-            States.NoclipConnection:Disconnect()
-            States.NoclipConnection = nil
-        end
+        if NoclipConn then NoclipConn:Disconnect() end
         if LocalPlayer.Character then
             for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
+                if part:IsA("BasePart") then part.CanCollide = true end
             end
         end
     end
 end)
 
 -- Teleport
-local TPCard = CreateCard("TELEPORT", "🎯")
-local TPFrame, GetSelected = CreateDropdown(TPCard)
+local TPCont = CreateCard("TELEPORT")
+local PlayerListFrame = Instance.new("ScrollingFrame")
+PlayerListFrame.Size = UDim2.new(1, 0, 0, 120)
+PlayerListFrame.BackgroundColor3 = Theme.SurfaceLight
+PlayerListFrame.BackgroundTransparency = 0.3
+PlayerListFrame.BorderSizePixel = 0
+PlayerListFrame.ScrollBarThickness = 4
+PlayerListFrame.ScrollBarImageColor3 = Theme.Primary
+PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+Round(PlayerListFrame, 8)
+PlayerListFrame.Parent = TPCont
 
-CreateButton(TPCard, "Teleport to Player", "primary", function()
-    local target = GetSelected()
-    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.Padding = UDim.new(0, 4)
+ListLayout.Parent = PlayerListFrame
+
+local SelectedPlayer = nil
+
+local function UpdatePlayerList()
+    for _, c in pairs(PlayerListFrame:GetChildren()) do
+        if c:IsA("TextButton") then c:Destroy() end
+    end
+    
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, -8, 0, 30)
+            btn.Position = UDim2.new(0, 4, 0, 0)
+            btn.BackgroundColor3 = SelectedPlayer == p and Theme.Primary or Theme.Surface
+            btn.Text = p.Name
+            btn.TextColor3 = Color3.new(1, 1, 1)
+            btn.TextSize = 12
+            btn.Font = Enum.Font.Gotham
+            Round(btn, 6)
+            btn.Parent = PlayerListFrame
+            
+            btn.MouseButton1Click:Connect(function()
+                SelectedPlayer = p
+                UpdatePlayerList()
+            end)
+        end
+    end
+    
+    PlayerListFrame.CanvasSize = UDim2.new(0, 0, 0, (#Players:GetPlayers() - 1) * 34)
+end
+
+UpdatePlayerList()
+Players.PlayerAdded:Connect(UpdatePlayerList)
+Players.PlayerRemoving:Connect(UpdatePlayerList)
+
+CreateButton(TPCont, "Teleport to Selected", "primary", function()
+    if SelectedPlayer and SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = SelectedPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0)
     end
 end)
 
-CreateButton(TPCard, "Follow Player (Exact)", "normal", function()
+CreateButton(TPCont, "Follow Player", "normal", function()
     Config.AutoFollow = not Config.AutoFollow
     if Config.AutoFollow then
-        local target = GetSelected()
-        States.FollowingPlayer = target
         spawn(function()
-            while Config.AutoFollow and States.FollowingPlayer and States.FollowingPlayer.Character and States.FollowingPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") do
-                LocalPlayer.Character.HumanoidRootPart.CFrame = States.FollowingPlayer.Character.HumanoidRootPart.CFrame
-                wait(0.05)
+            while Config.AutoFollow and SelectedPlayer do
+                if SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.Humanoid:MoveTo(SelectedPlayer.Character.HumanoidRootPart.Position)
+                end
+                wait(0.2)
             end
         end)
-    else
-        States.FollowingPlayer = nil
     end
 end)
 
 -- ESP
-local ESPCard = CreateCard("ESP", "👁️")
-States.ESPFolder = Instance.new("Folder")
-States.ESPFolder.Name = "ESP"
-States.ESPFolder.Parent = CoreGui
+local ESPCont = CreateCard("ESP PLAYER")
+local ESPFolder = Instance.new("Folder")
+ESPFolder.Parent = CoreGui
 
-CreateToggle(ESPCard, "Enable Player ESP", function(enabled)
+CreateToggle(ESPCont, "Enable ESP", function(enabled)
     Config.ESP = enabled
-    
-    local function CreateESP(player)
-        if player == LocalPlayer then return end
-        
-        local esp = Instance.new("BillboardGui")
-        esp.Name = player.Name .. "_ESP"
-        esp.AlwaysOnTop = true
-        esp.Size = UDim2.new(0, 150, 0, 60)
-        esp.StudsOffset = Vector3.new(0, 3, 0)
-        
-        local bg = Instance.new("Frame")
-        bg.Size = UDim2.new(1, 0, 1, 0)
-        bg.BackgroundColor3 = Theme.Primary
-        bg.BackgroundTransparency = 0.7
-        Round(bg, 10)
-        bg.Parent = esp
-        
-        local name = Instance.new("TextLabel")
-        name.Size = UDim2.new(1, 0, 0.6, 0)
-        name.BackgroundTransparency = 1
-        name.Text = player.Name
-        name.TextColor3 = Color3.new(1, 1, 1)
-        name.TextSize = 14
-        name.Font = Enum.Font.GothamBold
-        name.Parent = bg
-        
-        local dist = Instance.new("TextLabel")
-        dist.Size = UDim2.new(1, 0, 0.4, 0)
-        dist.Position = UDim2.new(0, 0, 0.6, 0)
-        dist.BackgroundTransparency = 1
-        dist.Text = "0m"
-        dist.TextColor3 = Color3.fromRGB(220, 220, 220)
-        dist.TextSize = 11
-        dist.Font = Enum.Font.Gotham
-        dist.Parent = bg
-        
-        esp.Parent = States.ESPFolder
-        
-        spawn(function()
-            while Config.ESP and esp.Parent do
-                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    esp.Adornee = player.Character.HumanoidRootPart
-                    local d = (LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                    dist.Text = math.floor(d) .. "m"
-                end
-                wait(0.5)
-            end
-            esp:Destroy()
-        end)
-    end
-    
     if enabled then
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer then CreateESP(p) end
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+                local esp = Instance.new("BillboardGui")
+                esp.AlwaysOnTop = true
+                esp.Size = UDim2.new(0, 120, 0, 50)
+                esp.StudsOffset = Vector3.new(0, 2.5, 0)
+                esp.Adornee = p.Character.Head
+                
+                local bg = Instance.new("Frame")
+                bg.Size = UDim2.new(1, 0, 1, 0)
+                bg.BackgroundColor3 = Theme.Primary
+                bg.BackgroundTransparency = 0.7
+                Round(bg, 8)
+                bg.Parent = esp
+                
+                local name = Instance.new("TextLabel")
+                name.Size = UDim2.new(1, 0, 0.6, 0)
+                name.BackgroundTransparency = 1
+                name.Text = p.Name
+                name.TextColor3 = Color3.new(1, 1, 1)
+                name.TextSize = 13
+                name.Font = Enum.Font.GothamBold
+                name.Parent = bg
+                
+                local dist = Instance.new("TextLabel")
+                dist.Size = UDim2.new(1, 0, 0.4, 0)
+                dist.Position = UDim2.new(0, 0, 0.6, 0)
+                dist.BackgroundTransparency = 1
+                dist.Text = "0m"
+                dist.TextColor3 = Color3.fromRGB(220, 220, 220)
+                dist.TextSize = 10
+                dist.Font = Enum.Font.Gotham
+                dist.Parent = bg
+                
+                esp.Parent = ESPFolder
+                
+                spawn(function()
+                    while Config.ESP and wait(0.5) do
+                        if p.Character and p.Character:FindFirstChild("Head") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
+                            local d = (LocalPlayer.Character.Head.Position - p.Character.Head.Position).Magnitude
+                            dist.Text = math.floor(d) .. "m"
+                        end
+                    end
+                end)
+            end
         end
-        Players.PlayerAdded:Connect(function(p)
-            if Config.ESP then CreateESP(p) end
-        end)
     else
-        States.ESPFolder:ClearAllChildren()
+        ESPFolder:ClearAllChildren()
     end
 end)
 
 -- God Mode
-local GodCard = CreateCard("GOD MODE", "🛡️")
-
-local GodModeType = "Gen1"
-local TypeBtn = Instance.new("TextButton")
-TypeBtn.Size = UDim2.new(1, 0, 0, 32)
-TypeBtn.BackgroundColor3 = Theme.SurfaceLight
-TypeBtn.Text = "Mode: Gen1 (Auto Heal)"
-TypeBtn.TextColor3 = Theme.Text
-TypeBtn.TextSize = 12
-TypeBtn.Font = Enum.Font.GothamBold
-Round(TypeBtn, 8)
-TypeBtn.Parent = GodCard
-
-TypeBtn.MouseButton1Click:Connect(function()
-    GodModeType = GodModeType == "Gen1" and "Gen2" or "Gen1"
-    TypeBtn.Text = GodModeType == "Gen1" and "Mode: Gen1 (Auto Heal)" or "Mode: Gen2 (Super Immortal)"
-end)
-
-CreateToggle(GodCard, "Enable God Mode", function(enabled)
+local GodCont = CreateCard("GOD MODE")
+CreateToggle(GodCont, "Enable God Mode", function(enabled)
     Config.GodMode = enabled
-    
-    if States.GodConnection then
-        States.GodConnection:Disconnect()
-        States.GodConnection = nil
-    end
-    
-    if enabled then
-        States.GodConnection = RunService.Heartbeat:Connect(function()
-            if not LocalPlayer.Character then return end
-            
-            local humanoid = LocalPlayer.Character:FindFirstChild("Humanoid")
-            if not humanoid then return end
-            
-            if GodModeType == "Gen1" then
-                -- Gen1: Auto Heal
-                humanoid.Health = humanoid.MaxHealth
-            else
-                -- Gen2: Super Immortal
-                humanoid.MaxHealth = math.huge
-                humanoid.Health = math.huge
-                humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
-            end
-        end)
-    else
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.MaxHealth = 100
-            LocalPlayer.Character.Humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, true)
-        end
-    end
-end)
-
-CreateToggle(GodCard, "Auto Heal", function(enabled)
-    Config.AutoHeal = enabled
     spawn(function()
-        while Config.AutoHeal do
+        while Config.GodMode and wait(0.5) do
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
                 LocalPlayer.Character.Humanoid.Health = LocalPlayer.Character.Humanoid.MaxHealth
             end
-            wait(0.1)
         end
-    end
+    end)
 end)
 
-CreateButton(GodCard, "Heal Instantly", "primary", function()
+CreateButton(GodCont, "Heal Instantly", "primary", function()
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         LocalPlayer.Character.Humanoid.Health = LocalPlayer.Character.Humanoid.MaxHealth
     end
 end)
 
--- Visual & Utility
-local VisualCard = CreateCard("VISUAL & UTILITY", "🎨")
-
-CreateToggle(VisualCard, "Full Brightness", function(enabled)
-    Config.FullBright = enabled
+-- UNLOCK ZOOM (NEW FEATURE)
+local ZoomCont = CreateCard("UNLOCK ZOOM")
+CreateToggle(ZoomCont, "Enable Unlock Zoom", function(enabled)
+    Config.ZoomUnlock = enabled
     if enabled then
-        States.BrightnessConnection = RunService.RenderStepped:Connect(function()
-            Lighting.Brightness = 10
-            Lighting.GlobalShadows = false
-            Lighting.Ambient = Color3.new(1, 1, 1)
-            Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
-        end)
+        LocalPlayer.CameraMaxZoomDistance = 10000
+        LocalPlayer.CameraMinZoomDistance = 0.5
     else
-        if States.BrightnessConnection then
-            States.BrightnessConnection:Disconnect()
-            States.BrightnessConnection = nil
-        end
-        Lighting.Brightness = 1
-        Lighting.GlobalShadows = true
+        LocalPlayer.CameraMaxZoomDistance = 128
+        LocalPlayer.CameraMinZoomDistance = 0.5
     end
 end)
 
-CreateToggle(VisualCard, "Anti-AFK", function(enabled)
-    Config.AntiAFK = enabled
-    if enabled then
-        LocalPlayer.Idled:Connect(function()
-            VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-            wait(1)
-            VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
-        end)
-    end
-end)
-
-CreateSlider(VisualCard, "Visual Coin Multiplier", 0, 1000, 0, function(val)
-    Config.CoinVisual = val
-    -- Implementation depends on game
-end)
-
-CreateToggle(VisualCard, "FPS Boost (Low Graphics)", function(enabled)
-    Config.FPSBoost = enabled
-    if enabled then
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("BasePart") and not v.Parent:FindFirstChild("Humanoid") then
-                v.Material = Enum.Material.SmoothPlastic
-            end
-            if v:IsA("Decal") or v:IsA("Texture") then
-                v:Destroy()
-            end
-        end
-        Lighting.GlobalShadows = false
-        settings().Rendering.QualityLevel = 1
+CreateSlider(ZoomCont, "Max Zoom Distance", 10, 10000, 1000, function(val)
+    if Config.ZoomUnlock then
+        LocalPlayer.CameraMaxZoomDistance = val
     end
 end)
 
 -- Extra
-local ExtraCard = CreateCard("EXTRA", "⚙️")
+local ExtraCont = CreateCard("EXTRA FEATURES")
 
-CreateButton(ExtraCard, "Rejoin Server", "primary", function()
-    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+CreateButton(ExtraCont, "Infinite Jump", "normal", function()
+    local infiniteJump = false
+    UserInputService.JumpRequest:Connect(function()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end)
 end)
 
-CreateButton(ExtraCard, "Server Hop", "normal", function()
-    local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
-    for _, server in pairs(servers.data) do
-        if server.playing < server.maxPlayers and server.id ~= game.JobId then
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, server.id)
-            break
-        end
-    end
+CreateButton(ExtraCont, "Anti-AFK", "normal", function()
+    local VirtualUser = game:GetService("VirtualUser")
+    LocalPlayer.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
+end)
+
+CreateButton(ExtraCont, "Rejoin Server", "primary", function()
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
 end)
 
 -- ========== CONTROLS ==========
@@ -1078,47 +1042,31 @@ end)
 
 -- Minimize
 MinBtn.MouseButton1Click:Connect(function()
-    Tween(MainFrame, {Size = UDim2.new(0, 400, 0, 0)}, 0.3)
+    Tween(MainFrame, {Size = UDim2.new(0, 340, 0, 0)}, 0.3)
     wait(0.3)
     MainFrame.Visible = false
     OrbButton.Visible = true
-    Tween(OrbButton, {Size = UDim2.new(0, 60, 0, 60)}, 0.3)
+    Tween(OrbButton, {Size = UDim2.new(0, 55, 0, 55)}, 0.3)
 end)
 
 OrbButton.MouseButton1Click:Connect(function()
     OrbButton.Visible = false
     MainFrame.Visible = true
-    Tween(MainFrame, {Size = UDim2.new(0, 400, 0, 500)}, 0.3)
+    Tween(MainFrame, {Size = UDim2.new(0, 340, 0, 450)}, 0.3)
 end)
 
--- Close (FIXED)
+-- Close
 CloseBtn.MouseButton1Click:Connect(function()
-    -- Cleanup
-    Config.Flying = false
-    Config.Noclip = false
-    Config.GodMode = false
-    Config.ESP = false
-    Config.AutoFollow = false
-    
-    if States.FlyConnection then States.FlyConnection:Disconnect() end
-    if States.NoclipConnection then States.NoclipConnection:Disconnect() end
-    if States.GodConnection then States.GodConnection:Disconnect() end
-    if States.BrightnessConnection then States.BrightnessConnection:Disconnect() end
-    
-    States.ESPFolder:ClearAllChildren()
-    
-    -- Close animation
-    Tween(MainFrame, {Position = UDim2.new(MainFrame.Position.X.Scale, MainFrame.Position.X.Offset, 1.5, 0)}, 0.4)
-    wait(0.4)
-    
+    Tween(MainFrame, {Position = UDim2.new(MainFrame.Position.X.Scale, MainPlayer.Position.X.Offset, 1.5, 0)}, 0.3)
+    wait(0.3)
     ScreenGui:Destroy()
-    getgenv().APNEXTGEN_LOADED = nil
+    MobileFlyGui:Destroy()
 end)
 
 -- Intro Animation
 MainFrame.Size = UDim2.new(0, 0, 0, 0)
-wait(0.2)
-Tween(MainFrame, {Size = UDim2.new(0, 400, 0, 500)}, 0.6, Enum.EasingStyle.Back)
+wait(0.1)
+Tween(MainFrame, {Size = UDim2.new(0, 340, 0, 450)}, 0.5, Enum.EasingStyle.Back)
 
-print("✅ AP-NEXTGEN1 v5.0 ULTIMATE Loaded Successfully!")
-print("All features working | Joystick Fly | HD UI | No Bugs")
+print("✅ AP-NEXTGEN1 v4.1 PERFECT EDITION Loaded!")
+print("Features: Perfect Scroll | Real Fly Controls | Unlock Zoom | All Working!")
