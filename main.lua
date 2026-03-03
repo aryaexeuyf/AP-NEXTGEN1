@@ -1,4 +1,4 @@
--- Overlay Panel v6 | Zero Chain Build
+-- Overlay Panel v7 | writefile + getcustomasset fix
 -- ============================================
 
 local Players          = game:GetService("Players")
@@ -6,23 +6,21 @@ local CoreGui          = game:GetService("CoreGui")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer      = Players.LocalPlayer
 
--- ============================================
--- HAPUS GUI LAMA
--- ============================================
+-- Hapus GUI lama
 pcall(function()
-    local old = CoreGui:FindFirstChild("OvUI6")
+    local old = CoreGui:FindFirstChild("OvUI7")
     if old then old:Destroy() end
 end)
 pcall(function()
     local pg = LocalPlayer:FindFirstChild("PlayerGui")
     if pg then
-        local old = pg:FindFirstChild("OvUI6")
+        local old = pg:FindFirstChild("OvUI7")
         if old then old:Destroy() end
     end
 end)
 
 -- ============================================
--- DETEKSI HTTP
+-- DETEKSI FUNGSI EXECUTOR
 -- ============================================
 local httpFunc = nil
 if syn and syn.request then
@@ -35,37 +33,59 @@ elseif request then
     httpFunc = request
 end
 
--- Cek Drawing.Image
-local hasDrawImg = false
-pcall(function()
-    local t = Drawing.new("Image")
-    t:Remove()
-    hasDrawImg = true
-end)
+-- Deteksi getcustomasset / getsynasset
+local getAsset = nil
+if getcustomasset then
+    getAsset = getcustomasset
+    print("[OK] getcustomasset tersedia")
+elseif getsynasset then
+    getAsset = getsynasset
+    print("[OK] getsynasset tersedia")
+else
+    print("[WARN] getcustomasset tidak tersedia")
+end
+
+-- Deteksi writefile
+local canWrite = (writefile ~= nil)
+print("[OK] writefile: " .. tostring(canWrite))
+print("[OK] httpFunc: " .. tostring(httpFunc ~= nil))
 
 -- ============================================
 -- SCREEN GUI
 -- ============================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name           = "OvUI6"
+ScreenGui.Name           = "OvUI7"
 ScreenGui.ResetOnSpawn   = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.DisplayOrder   = 9999
 
-local parentOk = pcall(function()
-    ScreenGui.Parent = CoreGui
-end)
-if not parentOk then
+local pOk = pcall(function() ScreenGui.Parent = CoreGui end)
+if not pOk then
     ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
 -- ============================================
--- PANEL UTAMA
+-- OVERLAY IMAGE LABEL (fullscreen, di belakang)
+-- ============================================
+local OverlayImg = Instance.new("ImageLabel")
+OverlayImg.Name                 = "OverlayImg"
+OverlayImg.Size                 = UDim2.new(1, 0, 1, 0)
+OverlayImg.Position             = UDim2.new(0, 0, 0, 0)
+OverlayImg.BackgroundTransparency = 1
+OverlayImg.ImageTransparency    = 0
+OverlayImg.ScaleType            = Enum.ScaleType.Stretch
+OverlayImg.ZIndex               = 1
+OverlayImg.Visible              = false
+OverlayImg.Image                = ""
+OverlayImg.Parent               = ScreenGui
+
+-- ============================================
+-- PANEL FRAME
 -- ============================================
 local Panel = Instance.new("Frame")
 Panel.Name                   = "Panel"
-Panel.Size                   = UDim2.new(0, 280, 0, 370)
-Panel.Position               = UDim2.new(0, 20, 0.5, -185)
+Panel.Size                   = UDim2.new(0, 280, 0, 390)
+Panel.Position               = UDim2.new(0, 20, 0.5, -195)
 Panel.BackgroundColor3       = Color3.fromRGB(14, 14, 14)
 Panel.BackgroundTransparency = 0
 Panel.BorderSizePixel        = 0
@@ -86,7 +106,6 @@ PanelStroke.Parent    = Panel
 -- TITLE BAR
 -- ============================================
 local TitleBar = Instance.new("Frame")
-TitleBar.Name             = "TitleBar"
 TitleBar.Size             = UDim2.new(1, 0, 0, 40)
 TitleBar.Position         = UDim2.new(0, 0, 0, 0)
 TitleBar.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
@@ -107,7 +126,7 @@ TitleBarFix.ZIndex           = 101
 TitleBarFix.Parent           = TitleBar
 
 local TitleLbl = Instance.new("TextLabel")
-TitleLbl.Text               = "Overlay Panel"
+TitleLbl.Text               = "Overlay Panel v7"
 TitleLbl.Size               = UDim2.new(1, -44, 1, 0)
 TitleLbl.Position           = UDim2.new(0, 12, 0, 0)
 TitleLbl.BackgroundTransparency = 1
@@ -135,10 +154,10 @@ CloseBtnCorner.CornerRadius = UDim.new(0, 6)
 CloseBtnCorner.Parent       = CloseBtn
 
 -- ============================================
--- STATUS LABEL
+-- STATUS & LOG
 -- ============================================
 local StatusLbl = Instance.new("TextLabel")
-StatusLbl.Text               = "Panel loaded! Tekan tombol Load."
+StatusLbl.Text               = "Siap. Tekan Load."
 StatusLbl.Size               = UDim2.new(1, -20, 0, 22)
 StatusLbl.Position           = UDim2.new(0, 10, 0, 48)
 StatusLbl.BackgroundTransparency = 1
@@ -151,7 +170,7 @@ StatusLbl.ZIndex             = 101
 StatusLbl.Parent             = Panel
 
 local LogLbl = Instance.new("TextLabel")
-LogLbl.Text               = "HTTP: " .. (httpFunc and "OK" or "NOT FOUND") .. " | Drawing: " .. tostring(hasDrawImg)
+LogLbl.Text               = "HTTP:" .. tostring(httpFunc~=nil) .. " | Write:" .. tostring(canWrite) .. " | Asset:" .. tostring(getAsset~=nil)
 LogLbl.Size               = UDim2.new(1, -20, 0, 36)
 LogLbl.Position           = UDim2.new(0, 10, 0, 72)
 LogLbl.BackgroundTransparency = 1
@@ -164,149 +183,73 @@ LogLbl.ZIndex             = 101
 LogLbl.Parent             = Panel
 
 -- ============================================
--- TOMBOL 1: LOAD GITHUB
+-- TOMBOL-TOMBOL
 -- ============================================
-local BtnGithub = Instance.new("TextButton")
-BtnGithub.Text             = "Load GitHub PNG"
-BtnGithub.Size             = UDim2.new(1, -20, 0, 42)
-BtnGithub.Position         = UDim2.new(0, 10, 0, 116)
-BtnGithub.BackgroundColor3 = Color3.fromRGB(30, 120, 200)
-BtnGithub.TextColor3       = Color3.fromRGB(255, 255, 255)
-BtnGithub.TextSize         = 13
-BtnGithub.Font             = Enum.Font.GothamBold
-BtnGithub.BorderSizePixel  = 0
-BtnGithub.ZIndex           = 101
-BtnGithub.AutoButtonColor  = true
-BtnGithub.Parent           = Panel
+local function makeBtn(txt, y, r, g, b)
+    local btn = Instance.new("TextButton")
+    btn.Text             = txt
+    btn.Size             = UDim2.new(1, -20, 0, 42)
+    btn.Position         = UDim2.new(0, 10, 0, y)
+    btn.BackgroundColor3 = Color3.fromRGB(r, g, b)
+    btn.TextColor3       = Color3.fromRGB(255, 255, 255)
+    btn.TextSize         = 13
+    btn.Font             = Enum.Font.GothamBold
+    btn.BorderSizePixel  = 0
+    btn.ZIndex           = 101
+    btn.AutoButtonColor  = true
+    btn.Parent           = Panel
 
-local BtnGithubCorner = Instance.new("UICorner")
-BtnGithubCorner.CornerRadius = UDim.new(0, 8)
-BtnGithubCorner.Parent       = BtnGithub
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 8)
+    btnCorner.Parent       = btn
 
--- ============================================
--- TOMBOL 2: LOAD IMGBB
--- ============================================
-local BtnIbb = Instance.new("TextButton")
-BtnIbb.Text             = "Load ImgBB JPG"
-BtnIbb.Size             = UDim2.new(1, -20, 0, 42)
-BtnIbb.Position         = UDim2.new(0, 10, 0, 166)
-BtnIbb.BackgroundColor3 = Color3.fromRGB(30, 100, 170)
-BtnIbb.TextColor3       = Color3.fromRGB(255, 255, 255)
-BtnIbb.TextSize         = 13
-BtnIbb.Font             = Enum.Font.GothamBold
-BtnIbb.BorderSizePixel  = 0
-BtnIbb.ZIndex           = 101
-BtnIbb.AutoButtonColor  = true
-BtnIbb.Parent           = Panel
-
-local BtnIbbCorner = Instance.new("UICorner")
-BtnIbbCorner.CornerRadius = UDim.new(0, 8)
-BtnIbbCorner.Parent       = BtnIbb
-
--- ============================================
--- TOMBOL TOGGLE
--- ============================================
-local BtnToggle = Instance.new("TextButton")
-BtnToggle.Text             = "Overlay: Belum Load"
-BtnToggle.Size             = UDim2.new(1, -20, 0, 42)
-BtnToggle.Position         = UDim2.new(0, 10, 0, 216)
-BtnToggle.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
-BtnToggle.TextColor3       = Color3.fromRGB(255, 255, 255)
-BtnToggle.TextSize         = 13
-BtnToggle.Font             = Enum.Font.GothamBold
-BtnToggle.BorderSizePixel  = 0
-BtnToggle.ZIndex           = 101
-BtnToggle.AutoButtonColor  = true
-BtnToggle.Parent           = Panel
-
-local BtnToggleCorner = Instance.new("UICorner")
-BtnToggleCorner.CornerRadius = UDim.new(0, 8)
-BtnToggleCorner.Parent       = BtnToggle
-
--- ============================================
--- TOMBOL FULLSCREEN
--- ============================================
-local BtnFull = Instance.new("TextButton")
-BtnFull.Text             = "Fullscreen Toggle"
-BtnFull.Size             = UDim2.new(1, -20, 0, 42)
-BtnFull.Position         = UDim2.new(0, 10, 0, 266)
-BtnFull.BackgroundColor3 = Color3.fromRGB(80, 60, 180)
-BtnFull.TextColor3       = Color3.fromRGB(255, 255, 255)
-BtnFull.TextSize         = 13
-BtnFull.Font             = Enum.Font.GothamBold
-BtnFull.BorderSizePixel  = 0
-BtnFull.ZIndex           = 101
-BtnFull.AutoButtonColor  = true
-BtnFull.Parent           = Panel
-
-local BtnFullCorner = Instance.new("UICorner")
-BtnFullCorner.CornerRadius = UDim.new(0, 8)
-BtnFullCorner.Parent       = BtnFull
-
--- ============================================
--- TOMBOL HAPUS
--- ============================================
-local BtnClear = Instance.new("TextButton")
-BtnClear.Text             = "Hapus Overlay"
-BtnClear.Size             = UDim2.new(1, -20, 0, 42)
-BtnClear.Position         = UDim2.new(0, 10, 0, 316)
-BtnClear.BackgroundColor3 = Color3.fromRGB(160, 30, 30)
-BtnClear.TextColor3       = Color3.fromRGB(255, 255, 255)
-BtnClear.TextSize         = 13
-BtnClear.Font             = Enum.Font.GothamBold
-BtnClear.BorderSizePixel  = 0
-BtnClear.ZIndex           = 101
-BtnClear.AutoButtonColor  = true
-BtnClear.Parent           = Panel
-
-local BtnClearCorner = Instance.new("UICorner")
-BtnClearCorner.CornerRadius = UDim.new(0, 8)
-BtnClearCorner.Parent       = BtnClear
-
--- ============================================
--- DRAWING STATE
--- ============================================
-local drawImg   = nil
-local overlayOn = false
-local isFullscr = false
-local VP        = workspace.CurrentCamera.ViewportSize
-
-local function destroyDraw()
-    if drawImg ~= nil then
-        pcall(function()
-            drawImg:Remove()
-        end)
-        drawImg   = nil
-        overlayOn = false
-    end
+    return btn
 end
+
+local BtnGithub = makeBtn("Load GitHub PNG",     116, 30,  120, 200)
+local BtnIbb    = makeBtn("Load ImgBB JPG",      166, 30,  100, 170)
+local BtnToggle = makeBtn("Overlay: Belum Load", 216, 80,  80,  80)
+local BtnFull   = makeBtn("Fullscreen Toggle",   266, 80,  60,  180)
+local BtnOpaq   = makeBtn("Opacity: 100%",       316, 100, 80,  30)
+local BtnClear  = makeBtn("Hapus Overlay",       366, 160, 30,  30)
+
+-- ============================================
+-- STATE
+-- ============================================
+local overlayOn  = false
+local isFullscr  = false
+local opacityVal = 0
+local loadedFile = ""
 
 local function setStatus(msg, r, g, b)
     StatusLbl.Text       = msg
     StatusLbl.TextColor3 = Color3.fromRGB(r or 255, g or 220, b or 80)
-    print("[OvUI6] " .. msg)
+    print("[OvUI7] " .. msg)
+end
+
+local function clearOverlay()
+    OverlayImg.Image   = ""
+    OverlayImg.Visible = false
+    overlayOn          = false
+    loadedFile         = ""
+    BtnToggle.Text             = "Overlay: Kosong"
+    BtnToggle.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
 end
 
 -- ============================================
--- LOAD IMAGE
+-- CORE: DOWNLOAD + WRITEFILE + GETCUSTOMASSET
 -- ============================================
-local function loadImage(url, label)
+local function loadImage(url, filename, label)
     if not httpFunc then
         setStatus("GAGAL: Tidak ada HTTP func!", 255, 80, 80)
-        LogLbl.Text = "Executor tidak support request()"
-        return
-    end
-    if not hasDrawImg then
-        setStatus("GAGAL: Drawing.Image tidak support!", 255, 80, 80)
-        LogLbl.Text = "Update Delta ke versi terbaru"
         return
     end
 
-    setStatus("Fetching: " .. label .. "...", 255, 220, 80)
+    setStatus("Downloading: " .. label .. "...", 255, 220, 80)
     LogLbl.Text = url
 
     task.spawn(function()
-        -- Coba HTTPS dulu
+        -- Download bytes
         local fetchOk, fetchRes = pcall(function()
             return httpFunc({
                 Url     = url,
@@ -315,7 +258,7 @@ local function loadImage(url, label)
             })
         end)
 
-        -- Fallback HTTP jika HTTPS gagal
+        -- Fallback HTTP
         if not fetchOk or not fetchRes or not fetchRes.Body or #fetchRes.Body == 0 then
             local httpUrl = url:gsub("^https://", "http://")
             fetchOk, fetchRes = pcall(function()
@@ -327,53 +270,105 @@ local function loadImage(url, label)
             end)
         end
 
-        if not fetchOk then
-            setStatus("GAGAL fetch: " .. label, 255, 80, 80)
+        if not fetchOk or not fetchRes or not fetchRes.Body or #fetchRes.Body == 0 then
+            setStatus("GAGAL download: " .. label, 255, 80, 80)
             LogLbl.Text = tostring(fetchRes):sub(1, 100)
             return
         end
 
-        if not fetchRes or not fetchRes.Body or #fetchRes.Body == 0 then
-            setStatus("GAGAL: Body kosong", 255, 80, 80)
-            LogLbl.Text = "Response tidak ada isi"
-            return
+        local bodySize = #fetchRes.Body
+        setStatus("Downloaded " .. math.floor(bodySize/1024) .. " KB. Menyimpan...", 255, 220, 80)
+
+        -- ==============================
+        -- METODE 1: writefile + getcustomasset
+        -- ==============================
+        if canWrite and getAsset then
+            local writeOk, writeErr = pcall(function()
+                writefile(filename, fetchRes.Body)
+            end)
+
+            if writeOk then
+                local assetOk, assetId = pcall(function()
+                    return getAsset(filename)
+                end)
+
+                if assetOk and assetId and assetId ~= "" then
+                    OverlayImg.Image   = assetId
+                    OverlayImg.Visible = true
+                    overlayOn          = true
+                    loadedFile         = filename
+                    BtnToggle.Text             = "Overlay: ON"
+                    BtnToggle.BackgroundColor3 = Color3.fromRGB(30, 160, 60)
+                    setStatus("BERHASIL [writefile]: " .. label, 80, 255, 120)
+                    LogLbl.Text = "Asset: " .. tostring(assetId):sub(1, 40)
+                    return
+                else
+                    setStatus("getcustomasset gagal, coba Drawing...", 255, 200, 0)
+                    LogLbl.Text = tostring(assetId):sub(1, 80)
+                end
+            else
+                setStatus("writefile gagal, coba Drawing...", 255, 200, 0)
+                LogLbl.Text = tostring(writeErr):sub(1, 80)
+            end
         end
 
-        -- Hancurkan drawing lama
-        destroyDraw()
+        -- ==============================
+        -- METODE 2: Drawing.new("Image")
+        -- ==============================
+        local VP = workspace.CurrentCamera.ViewportSize
 
-        -- Buat drawing baru (tanpa chaining sama sekali)
-        local newImg = Drawing.new("Image")
-
-        local setOk, setErr = pcall(function()
-            newImg.Data     = fetchRes.Body
-            newImg.Size     = Vector2.new(VP.X, VP.Y)
-            newImg.Position = Vector2.new(0, 0)
-            newImg.ZIndex   = 1
-            newImg.Visible  = true
+        local drawOk = pcall(function()
+            -- Hapus drawing lama jika ada
+            if ScreenGui:FindFirstChild("DrawingFrame") then
+                ScreenGui:FindFirstChild("DrawingFrame"):Destroy()
+            end
         end)
 
-        if setOk then
-            drawImg   = newImg
-            overlayOn = true
-            BtnToggle.Text             = "Overlay: ON"
-            BtnToggle.BackgroundColor3 = Color3.fromRGB(30, 160, 60)
-            setStatus("BERHASIL: " .. label, 80, 255, 120)
-            LogLbl.Text = "Ukuran: " .. math.floor(#fetchRes.Body / 1024) .. " KB"
-        else
-            pcall(function() newImg:Remove() end)
-            setStatus("GAGAL render Drawing", 255, 80, 80)
-            LogLbl.Text = tostring(setErr):sub(1, 100)
+        -- Buat ImageLabel fallback dengan Drawing data
+        -- Simpan sebagai EditableImage jika tersedia
+        if Drawing then
+            local newDraw = Drawing.new("Image")
+
+            local setOk, setErr = pcall(function()
+                newDraw.Data     = fetchRes.Body
+                newDraw.Size     = Vector2.new(VP.X, VP.Y)
+                newDraw.Position = Vector2.new(0, 0)
+                newDraw.ZIndex   = 1
+                newDraw.Visible  = true
+            end)
+
+            if setOk then
+                -- Simpan referensi di attribute ScreenGui
+                ScreenGui:SetAttribute("DrawingActive", true)
+
+                -- Karena Drawing tidak bisa di-toggle via ImageLabel,
+                -- buat wrapper agar bisa dikontrol
+                overlayOn = true
+                loadedFile = "__drawing__"
+                BtnToggle.Text             = "Overlay: ON"
+                BtnToggle.BackgroundColor3 = Color3.fromRGB(30, 160, 60)
+                setStatus("BERHASIL [Drawing]: " .. label, 80, 255, 120)
+                LogLbl.Text = "Mode: Drawing API | " .. math.floor(bodySize/1024) .. " KB"
+
+                -- Simpan drawing ke upvalue untuk toggle
+                _G["OvUI7_Drawing"] = newDraw
+                return
+            else
+                pcall(function() newDraw:Remove() end)
+                setStatus("GAGAL [Drawing]: " .. tostring(setErr):sub(1,60), 255, 80, 80)
+                LogLbl.Text = "Semua metode gagal"
+            end
         end
     end)
 end
 
 -- ============================================
--- EVENTS
+-- BUTTON EVENTS
 -- ============================================
 BtnGithub.MouseButton1Click:Connect(function()
     loadImage(
         "https://raw.githubusercontent.com/aryaexeuyf/Image/main/logo_g1.png",
+        "overlay_img.png",
         "GitHub PNG"
     )
 end)
@@ -381,17 +376,31 @@ end)
 BtnIbb.MouseButton1Click:Connect(function()
     loadImage(
         "https://i.ibb.co/ZR5QDJRJ/c16828dd-d8c9-4574-837c-614bb0730ec9.jpg",
+        "overlay_img.jpg",
         "ImgBB JPG"
     )
 end)
 
 BtnToggle.MouseButton1Click:Connect(function()
-    if drawImg == nil then
+    if not overlayOn and loadedFile == "" then
         setStatus("Load image dulu!", 255, 180, 0)
         return
     end
+
     overlayOn = not overlayOn
-    drawImg.Visible = overlayOn
+
+    -- Toggle ImageLabel
+    if OverlayImg.Image ~= "" then
+        OverlayImg.Visible = overlayOn
+    end
+
+    -- Toggle Drawing jika aktif
+    if _G["OvUI7_Drawing"] then
+        pcall(function()
+            _G["OvUI7_Drawing"].Visible = overlayOn
+        end)
+    end
+
     if overlayOn then
         BtnToggle.Text             = "Overlay: ON"
         BtnToggle.BackgroundColor3 = Color3.fromRGB(30, 160, 60)
@@ -402,37 +411,70 @@ BtnToggle.MouseButton1Click:Connect(function()
 end)
 
 BtnFull.MouseButton1Click:Connect(function()
-    if drawImg == nil then
-        setStatus("Load image dulu!", 255, 180, 0)
-        return
-    end
     isFullscr = not isFullscr
-    if isFullscr then
-        drawImg.Size     = Vector2.new(VP.X, VP.Y)
-        drawImg.Position = Vector2.new(0, 0)
-        BtnFull.Text     = "Ukuran Normal"
-    else
-        drawImg.Size     = Vector2.new(800, 450)
-        drawImg.Position = Vector2.new(VP.X/2 - 400, VP.Y/2 - 225)
-        BtnFull.Text     = "Fullscreen Toggle"
+    local VP  = workspace.CurrentCamera.ViewportSize
+
+    if OverlayImg.Image ~= "" then
+        if isFullscr then
+            OverlayImg.Size     = UDim2.new(1, 0, 1, 0)
+            OverlayImg.Position = UDim2.new(0, 0, 0, 0)
+        else
+            OverlayImg.Size     = UDim2.new(0, 400, 0, 300)
+            OverlayImg.Position = UDim2.new(0.5, -200, 0.5, -150)
+        end
     end
+
+    if _G["OvUI7_Drawing"] then
+        pcall(function()
+            if isFullscr then
+                _G["OvUI7_Drawing"].Size     = Vector2.new(VP.X, VP.Y)
+                _G["OvUI7_Drawing"].Position = Vector2.new(0, 0)
+            else
+                _G["OvUI7_Drawing"].Size     = Vector2.new(400, 300)
+                _G["OvUI7_Drawing"].Position = Vector2.new(VP.X/2-200, VP.Y/2-150)
+            end
+        end)
+    end
+
+    BtnFull.Text = isFullscr and "Ukuran Normal" or "Fullscreen Toggle"
+end)
+
+-- Tombol opacity (gelap / terang)
+local opacSteps = {0, 0.25, 0.5, 0.75}
+local opacIdx   = 1
+BtnOpaq.MouseButton1Click:Connect(function()
+    opacIdx = (opacIdx % #opacSteps) + 1
+    local val = opacSteps[opacIdx]
+    OverlayImg.ImageTransparency = val
+    if _G["OvUI7_Drawing"] then
+        pcall(function()
+            _G["OvUI7_Drawing"].Transparency = 1 - val
+        end)
+    end
+    BtnOpaq.Text = "Opacity: " .. math.floor((1 - val) * 100) .. "%"
 end)
 
 BtnClear.MouseButton1Click:Connect(function()
-    destroyDraw()
-    BtnToggle.Text             = "Overlay: Kosong"
-    BtnToggle.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+    clearOverlay()
+    if _G["OvUI7_Drawing"] then
+        pcall(function() _G["OvUI7_Drawing"]:Remove() end)
+        _G["OvUI7_Drawing"] = nil
+    end
     setStatus("Overlay dihapus", 180, 180, 180)
     LogLbl.Text = ""
 end)
 
 CloseBtn.MouseButton1Click:Connect(function()
-    destroyDraw()
+    clearOverlay()
+    if _G["OvUI7_Drawing"] then
+        pcall(function() _G["OvUI7_Drawing"]:Remove() end)
+        _G["OvUI7_Drawing"] = nil
+    end
     ScreenGui:Destroy()
 end)
 
 -- ============================================
--- DRAG
+-- DRAG PANEL
 -- ============================================
 local drag, dS, dO = false, nil, nil
 
@@ -465,7 +507,12 @@ UserInputService.InputEnded:Connect(function(inp)
 end)
 
 ScreenGui.AncestryChanged:Connect(function()
-    pcall(destroyDraw)
+    pcall(function()
+        if _G["OvUI7_Drawing"] then
+            _G["OvUI7_Drawing"]:Remove()
+            _G["OvUI7_Drawing"] = nil
+        end
+    end)
 end)
 
-print("[OvUI6] Ready!")
+print("[OvUI7] Ready!")
