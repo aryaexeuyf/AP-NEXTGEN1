@@ -1,46 +1,107 @@
--- main.lua - Image Overlay di Script
--- Logo nempel di atas UI script yang sudah jalan
+-- main.lua - G1 Loader
+-- Asset ID: 111580113698335
 
 local CoreGui = game:GetService("CoreGui")
 
--- Hapus overlay lama
-if CoreGui:FindFirstChild("G1_Overlay") then
-    CoreGui:FindFirstChild("G1_Overlay"):Destroy()
+-- Hapus UI lama
+if CoreGui:FindFirstChild("G1_Loader") then
+    CoreGui:FindFirstChild("G1_Loader"):Destroy()
 end
 
--- Buat overlay ScreenGui
-local overlay = Instance.new("ScreenGui")
-overlay.Name = "G1_Overlay"
-overlay.Parent = CoreGui
-overlay.ResetOnSpawn = false
+-- ScreenGui
+local gui = Instance.new("ScreenGui")
+gui.Name = "G1_Loader"
+gui.Parent = CoreGui
 
--- LOGO OVERLAY (Pojok Kanan Atas)
+-- Frame utama
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 400, 0, 350)
+frame.Position = UDim2.new(0.5, -200, 0.5, -175)
+frame.BackgroundColor3 = Color3.fromRGB(20, 25, 40)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
+
+-- LOGO DARI ASSET ID BARU
 local logo = Instance.new("ImageLabel")
-logo.Name = "G1_Logo"
-logo.Size = UDim2.new(0, 80, 0, 80) -- Ukuran kecil
-logo.Position = UDim2.new(1, -90, 0, 10) -- Pojok kanan atas
+logo.Size = UDim2.new(0, 250, 0, 250)
+logo.Position = UDim2.new(0.5, -125, 0, 20)
 logo.BackgroundTransparency = 1
-logo.Image = "rbxassetid://74347325614985" -- Ganti dengan asset ID yang work
+logo.Image = "rbxassetid://111580113698335"
 logo.ScaleType = Enum.ScaleType.Fit
-logo.ImageTransparency = 0.2 -- Transparan dikit biar keren
-logo.Parent = overlay
+logo.Parent = frame
 
--- Tambah shadow/glow
-local glow = Instance.new("ImageLabel")
-glow.Size = UDim2.new(1.2, 0, 1.2, 0)
-glow.Position = UDim2.new(-0.1, 0, -0.1, 0)
-glow.BackgroundTransparency = 1
-glow.Image = "rbxassetid://74347325614985"
-glow.ScaleType = Enum.ScaleType.Fit
-glow.ImageTransparency = 0.8
-glow.ImageColor3 = Color3.fromRGB(70, 130, 255) -- Glow biru
-glow.ZIndex = -1
-glow.Parent = logo
+-- Status text
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1, 0, 0, 30)
+status.Position = UDim2.new(0, 0, 0, 280)
+status.BackgroundTransparency = 1
+status.Text = "Loading..."
+status.TextColor3 = Color3.fromRGB(100, 150, 255)
+status.TextSize = 14
+status.Font = Enum.Font.GothamBold
+status.Parent = frame
 
--- Script utama kamu di sini
--- ============================================
-print("🔥 G1 Script Running...")
--- loadstring(game:HttpGet("URL_SCRIPT_UTAMA"))()
--- ============================================
+-- Tombol Execute
+local btn = Instance.new("TextButton")
+btn.Size = UDim2.new(0, 200, 0, 40)
+btn.Position = UDim2.new(0.5, -100, 0, 295)
+btn.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
+btn.Text = "EXECUTE"
+btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+btn.TextSize = 16
+btn.Font = Enum.Font.GothamBold
+btn.Visible = false
+btn.Parent = frame
 
-print("✅ G1 Overlay Active")
+Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+
+-- Tombol Close
+local close = Instance.new("TextButton")
+close.Size = UDim2.new(0, 35, 0, 35)
+close.Position = UDim2.new(1, -45, 0, 10)
+close.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
+close.Text = "X"
+close.TextColor3 = Color3.fromRGB(255, 255, 255)
+close.TextSize = 18
+close.Font = Enum.Font.GothamBold
+close.Parent = frame
+
+Instance.new("UICorner", close).CornerRadius = UDim.new(0, 6)
+
+-- Cek logo loaded
+spawn(function()
+    wait(2)
+    
+    if logo.IsLoaded then
+        status.Text = "✅ Ready!"
+        status.TextColor3 = Color3.fromRGB(100, 255, 150)
+        btn.Visible = true
+    else
+        wait(2)
+        if logo.IsLoaded then
+            status.Text = "✅ Ready!"
+            status.TextColor3 = Color3.fromRGB(100, 255, 150)
+            btn.Visible = true
+        else
+            status.Text = "❌ Failed"
+            status.TextColor3 = Color3.fromRGB(255, 100, 100)
+        end
+    end
+end)
+
+-- Execute
+btn.MouseButton1Click:Connect(function()
+    print("🔥 G1 Executed!")
+    gui:Destroy()
+end)
+
+-- Close
+close.MouseButton1Click:Connect(function()
+    gui:Destroy()
+end)
+
+print("🚀 G1 Loader - Asset ID: 111580113698335")
