@@ -1,31 +1,29 @@
--- main.lua - G1 Loader
+-- main.lua - G1 Loader (FIXED)
 -- Asset ID: 111580113698335
 
 local CoreGui = game:GetService("CoreGui")
 
 -- Hapus UI lama
-if CoreGui:FindFirstChild("G1_Loader") then
-    CoreGui:FindFirstChild("G1_Loader"):Destroy()
-end
+local old = CoreGui:FindFirstChild("G1_Simple")
+if old then old:Destroy() end
 
 -- ScreenGui
 local gui = Instance.new("ScreenGui")
-gui.Name = "G1_Loader"
+gui.Name = "G1_Simple"
 gui.Parent = CoreGui
 
--- Frame utama
+-- Frame
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 400, 0, 350)
 frame.Position = UDim2.new(0.5, -200, 0.5, -175)
 frame.BackgroundColor3 = Color3.fromRGB(20, 25, 40)
-frame.BorderSizePixel = 0
 frame.Active = true
 frame.Draggable = true
 frame.Parent = gui
 
 Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
 
--- LOGO DARI ASSET ID BARU
+-- LOGO - Langsung set tanpa pengecekan
 local logo = Instance.new("ImageLabel")
 logo.Size = UDim2.new(0, 250, 0, 250)
 logo.Position = UDim2.new(0.5, -125, 0, 20)
@@ -34,27 +32,26 @@ logo.Image = "rbxassetid://111580113698335"
 logo.ScaleType = Enum.ScaleType.Fit
 logo.Parent = frame
 
--- Status text
-local status = Instance.new("TextLabel")
-status.Size = UDim2.new(1, 0, 0, 30)
-status.Position = UDim2.new(0, 0, 0, 280)
-status.BackgroundTransparency = 1
-status.Text = "Loading..."
-status.TextColor3 = Color3.fromRGB(100, 150, 255)
-status.TextSize = 14
-status.Font = Enum.Font.GothamBold
-status.Parent = frame
+-- Text Ready
+local ready = Instance.new("TextLabel")
+ready.Size = UDim2.new(1, 0, 0, 30)
+ready.Position = UDim2.new(0, 0, 0, 280)
+ready.BackgroundTransparency = 1
+ready.Text = "G1 Ready"
+ready.TextColor3 = Color3.fromRGB(100, 255, 150)
+ready.TextSize = 14
+ready.Font = Enum.Font.GothamBold
+ready.Parent = frame
 
 -- Tombol Execute
 local btn = Instance.new("TextButton")
 btn.Size = UDim2.new(0, 200, 0, 40)
-btn.Position = UDim2.new(0.5, -100, 0, 295)
+btn.Position = UDim2.new(0.5, -100, 0, 310)
 btn.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
 btn.Text = "EXECUTE"
 btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 btn.TextSize = 16
 btn.Font = Enum.Font.GothamBold
-btn.Visible = false
 btn.Parent = frame
 
 Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
@@ -72,36 +69,13 @@ close.Parent = frame
 
 Instance.new("UICorner", close).CornerRadius = UDim.new(0, 6)
 
--- Cek logo loaded
-spawn(function()
-    wait(2)
-    
-    if logo.IsLoaded then
-        status.Text = "✅ Ready!"
-        status.TextColor3 = Color3.fromRGB(100, 255, 150)
-        btn.Visible = true
-    else
-        wait(2)
-        if logo.IsLoaded then
-            status.Text = "✅ Ready!"
-            status.TextColor3 = Color3.fromRGB(100, 255, 150)
-            btn.Visible = true
-        else
-            status.Text = "❌ Failed"
-            status.TextColor3 = Color3.fromRGB(255, 100, 100)
-        end
-    end
-end)
-
--- Execute
+-- Functions
 btn.MouseButton1Click:Connect(function()
-    print("🔥 G1 Executed!")
     gui:Destroy()
 end)
 
--- Close
 close.MouseButton1Click:Connect(function()
     gui:Destroy()
 end)
 
-print("🚀 G1 Loader - Asset ID: 111580113698335")
+print("G1 Loaded")
