@@ -1,228 +1,172 @@
--- main.lua
--- Menampilkan gambar dengan Asset ID: 127480462745832
+-- main.lua - Versi Debug Lengkap
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
+local MarketplaceService = game:GetService("MarketplaceService")
 
 local LocalPlayer = Players.LocalPlayer
 
--- Hapus UI lama jika ada
-if CoreGui:FindFirstChild("MyImageUI") then
-    CoreGui:FindFirstChild("MyImageUI"):Destroy()
+-- Hapus UI lama
+if CoreGui:FindFirstChild("DebugImageUI") then
+    CoreGui:FindFirstChild("DebugImageUI"):Destroy()
 end
 
--- Buat ScreenGui
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MyImageUI"
+ScreenGui.Name = "DebugImageUI"
 ScreenGui.Parent = CoreGui
-ScreenGui.ResetOnSpawn = false
 
--- Frame utama
 local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 400, 0, 350)
-MainFrame.Position = UDim2.new(0.5, -200, 0.5, -175)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-MainFrame.BorderSizePixel = 0
+MainFrame.Size = UDim2.new(0, 450, 0, 400)
+MainFrame.Position = UDim2.new(0.5, -225, 0.5, -200)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.Parent = ScreenGui
 
--- Corner radius biar modern
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 12)
 UICorner.Parent = MainFrame
 
--- Shadow effect
-local Shadow = Instance.new("ImageLabel")
-Shadow.Name = "Shadow"
-Shadow.AnchorPoint = Vector2.new(0.5, 0.5)
-Shadow.BackgroundTransparency = 1
-Shadow.Position = UDim2.new(0.5, 0, 0.5, 0)
-Shadow.Size = UDim2.new(1, 47, 1, 47)
-Shadow.ZIndex = -1
-Shadow.Image = "rbxassetid://6014261993" -- Shadow asset
-Shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-Shadow.ImageTransparency = 0.5
-Shadow.ScaleType = Enum.ScaleType.Slice
-Shadow.SliceCenter = Rect.new(49, 49, 450, 450)
-Shadow.Parent = MainFrame
+-- Info Panel
+local InfoPanel = Instance.new("TextLabel")
+InfoPanel.Size = UDim2.new(1, -20, 0, 60)
+InfoPanel.Position = UDim2.new(0, 10, 0, 10)
+InfoPanel.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+InfoPanel.Text = "Asset ID: 127480462745832\nStatus: Checking..."
+InfoPanel.TextColor3 = Color3.fromRGB(255, 255, 255)
+InfoPanel.TextSize = 14
+InfoPanel.Font = Enum.Font.Gotham
+InfoPanel.TextWrapped = true
+InfoPanel.Parent = MainFrame
 
--- GAMBAR UTAMA (Asset ID kamu)
-local ImageLabel = Instance.new("ImageLabel")
-ImageLabel.Name = "DisplayImage"
-ImageLabel.Size = UDim2.new(0, 300, 0, 200)
-ImageLabel.Position = UDim2.new(0.5, -150, 0, 20)
-ImageLabel.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-ImageLabel.BorderSizePixel = 0
--- ASSET ID KAMU DI SINI ↓↓↓
-ImageLabel.Image = "rbxassetid://127480462745832"
-ImageLabel.ScaleType = Enum.ScaleType.Fit -- Fit, Stretch, Crop, Slice
-ImageLabel.Parent = MainFrame
+local InfoCorner = Instance.new("UICorner")
+InfoCorner.CornerRadius = UDim.new(0, 8)
+InfoCorner.Parent = InfoPanel
 
--- Corner untuk gambar
-local ImgCorner = Instance.new("UICorner")
-ImgCorner.CornerRadius = UDim.new(0, 8)
-ImgCorner.Parent = ImageLabel
+-- Container Gambar
+local ImgContainer = Instance.new("Frame")
+ImgContainer.Size = UDim2.new(0, 300, 0, 200)
+ImgContainer.Position = UDim2.new(0.5, -150, 0, 80)
+ImgContainer.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+ImgContainer.Parent = MainFrame
 
--- Loading text (while image loads)
+local ContainerCorner = Instance.new("UICorner")
+ContainerCorner.CornerRadius = UDim.new(0, 8)
+ContainerCorner.Parent = ImgContainer
+
+-- Loading Text
 local LoadingText = Instance.new("TextLabel")
 LoadingText.Size = UDim2.new(1, 0, 1, 0)
 LoadingText.BackgroundTransparency = 1
-LoadingText.Text = "Loading Image..."
+LoadingText.Text = "Loading..."
 LoadingText.TextColor3 = Color3.fromRGB(200, 200, 200)
-LoadingText.TextSize = 14
-LoadingText.Font = Enum.Font.Gotham
-LoadingText.Parent = ImageLabel
+LoadingText.TextSize = 16
+LoadingText.Font = Enum.Font.GothamBold
+LoadingText.Parent = ImgContainer
 
--- Hilangkan loading text setelah gambar load
+-- GAMBAR UTAMA
+local ImageLabel = Instance.new("ImageLabel")
+ImageLabel.Name = "TestImage"
+ImageLabel.Size = UDim2.new(1, -10, 1, -10)
+ImageLabel.Position = UDim2.new(0, 5, 0, 5)
+ImageLabel.BackgroundTransparency = 1
+ImageLabel.Image = "rbxassetid://127480462745832"
+ImageLabel.ScaleType = Enum.ScaleType.Fit
+ImageLabel.ImageTransparency = 1 -- Mulai transparan
+ImageLabel.Parent = ImgContainer
+
+-- Cek apakah gambar load
+local startTime = tick()
+local loaded = false
+
 ImageLabel.Loaded:Connect(function()
+    loaded = true
+    local loadTime = tick() - startTime
     LoadingText:Destroy()
-    -- Animasi fade in gambar
-    ImageLabel.ImageTransparency = 1
+    
+    InfoPanel.Text = string.format(
+        "Asset ID: 127480462745832\nStatus: LOADED (%.2f detik)", 
+        loadTime
+    )
+    InfoPanel.TextColor3 = Color3.fromRGB(100, 255, 100)
+    
+    -- Fade in
     TweenService:Create(ImageLabel, TweenInfo.new(0.5), {
         ImageTransparency = 0
     }):Play()
+    
+    print("✅ Gambar berhasil dimuat dalam " .. loadTime .. " detik")
 end)
 
--- Jika gagal load
-if not ImageLabel.IsLoaded then
-    delay(5, function()
-        if not ImageLabel.IsLoaded then
-            LoadingText.Text = "Failed to load image"
-            LoadingText.TextColor3 = Color3.fromRGB(255, 100, 100)
-        end
+-- Timeout cek (10 detik)
+delay(10, function()
+    if not loaded then
+        LoadingText.Text = "❌ FAILED"
+        InfoPanel.Text = "Asset ID: 127480462745832\nStatus: FAILED TO LOAD"
+        InfoPanel.TextColor3 = Color3.fromRGB(255, 100, 100)
+        
+        print("❌ Gagal load gambar setelah 10 detik")
+        
+        -- Coba method alternatif
+        tryAlternativeMethods()
+    end
+end)
+
+-- Fungsi cek info asset (pcall untuk safety)
+spawn(function()
+    local success, info = pcall(function()
+        return MarketplaceService:GetProductInfo(127480462745832)
     end)
-end
-
--- Judul/Teks di bawah gambar
-local TitleText = Instance.new("TextLabel")
-TitleText.Size = UDim2.new(1, -40, 0, 30)
-TitleText.Position = UDim2.new(0, 20, 0, 230)
-TitleText.BackgroundTransparency = 1
-TitleText.Text = "Image Viewer"
-TitleText.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleText.TextSize = 18
-TitleText.Font = Enum.Font.GothamBold
-TitleText.TextXAlignment = Enum.TextXAlignment.Left
-TitleText.Parent = MainFrame
-
--- Info Asset ID
-local InfoText = Instance.new("TextLabel")
-InfoText.Size = UDim2.new(1, -40, 0, 20)
-InfoText.Position = UDim2.new(0, 20, 0, 260)
-InfoText.BackgroundTransparency = 1
-InfoText.Text = "Asset ID: 127480462745832"
-InfoText.TextColor3 = Color3.fromRGB(150, 150, 150)
-InfoText.TextSize = 12
-InfoText.Font = Enum.Font.Gotham
-InfoText.TextXAlignment = Enum.TextXAlignment.Left
-InfoText.Parent = MainFrame
+    
+    if success and info then
+        print("Asset Info ditemukan:")
+        print("Name: " .. (info.Name or "Unknown"))
+        print("Type: " .. (info.AssetTypeId or "Unknown"))
+        print("Creator: " .. (info.Creator and info.Creator.Name or "Unknown"))
+        
+        InfoPanel.Text = InfoPanel.Text .. "\nName: " .. (info.Name or "Unknown")
+    else
+        print("❌ Asset tidak ditemukan di Marketplace")
+        InfoPanel.Text = InfoPanel.Text .. "\n⚠️ Asset mungkin private atau tidak ada"
+    end
+end)
 
 -- Tombol Close
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -40, 0, 10)
+CloseBtn.Size = UDim2.new(0, 80, 0, 30)
+CloseBtn.Position = UDim2.new(0.5, -40, 1, -40)
 CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
-CloseBtn.Text = "X"
+CloseBtn.Text = "Close"
 CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseBtn.TextSize = 14
-CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.Parent = MainFrame
 
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 6)
-CloseCorner.Parent = CloseBtn
-
 CloseBtn.MouseButton1Click:Connect(function()
-    -- Animasi tutup
-    TweenService:Create(MainFrame, TweenInfo.new(0.3), {
-        Size = UDim2.new(0, 0, 0, 0),
-        Position = UDim2.new(0.5, 0, 0.5, 0)
-    }):Play()
-    wait(0.3)
     ScreenGui:Destroy()
 end)
 
--- Tombol Execute Script (contoh)
-local ExecuteBtn = Instance.new("TextButton")
-ExecuteBtn.Size = UDim2.new(0, 360, 0, 40)
-ExecuteBtn.Position = UDim2.new(0.5, -180, 0, 290)
-ExecuteBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-ExecuteBtn.Text = "Execute Main Script"
-ExecuteBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ExecuteBtn.TextSize = 16
-ExecuteBtn.Font = Enum.Font.GothamSemibold
-ExecuteBtn.Parent = MainFrame
+-- Fungsi Alternatif jika gagal
+function tryAlternativeMethods()
+    local AltFrame = Instance.new("Frame")
+    AltFrame.Size = UDim2.new(0, 400, 0, 150)
+    AltFrame.Position = UDim2.new(0.5, -200, 0.5, 50)
+    AltFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    AltFrame.Parent = ScreenGui
+    
+    local AltText = Instance.new("TextLabel")
+    AltText.Size = UDim2.new(1, -20, 1, -20)
+    AltText.Position = UDim2.new(0, 10, 0, 10)
+    AltText.BackgroundTransparency = 1
+    AltText.Text = "Mencoba method alternatif...\nCoba pakai Decal ID atau URL lain"
+    AltText.TextColor3 = Color3.fromRGB(255, 255, 100)
+    AltText.TextSize = 14
+    AltText.TextWrapped = true
+    AltText.Parent = AltFrame
+    
+    -- Opsi 1: Coba Decal ID (kadang berbeda dengan Image ID)
+    -- Opsi 2: Gunakan placeholder sementara
+    delay(2, function()
+        ImageLabel.Image = "rbxassetid://17633214800" -- Placeholder yang pasti work
+        AltText.Text = "Menggunakan placeholder image...\nAsset ID asli mungkin private"
+    end)
+end
 
-local BtnCorner = Instance.new("UICorner")
-BtnCorner.CornerRadius = UDim.new(0, 8)
-BtnCorner.Parent = ExecuteBtn
-
--- Hover effect
-ExecuteBtn.MouseEnter:Connect(function()
-    TweenService:Create(ExecuteBtn, TweenInfo.new(0.2), {
-        BackgroundColor3 = Color3.fromRGB(0, 150, 230)
-    }):Play()
-end)
-
-ExecuteBtn.MouseLeave:Connect(function()
-    TweenService:Create(ExecuteBtn, TweenInfo.new(0.2), {
-        BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-    }):Play()
-end)
-
--- Jalankan script utama
-ExecuteBtn.MouseButton1Click:Connect(function()
-    print("Script executed!")
-    -- Masukkan script utama kamu di sini
-    -- loadstring(game:HttpGet("URL_SCRIPT_UTAMA"))()
-end)
-
--- Dragging system (bisa geser UI)
-local dragging = false
-local dragInput, dragStart, startPos
-
-MainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or 
-       input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-MainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or 
-       input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-game:GetService("UserInputService").InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(
-            startPos.X.Scale, 
-            startPos.X.Offset + delta.X, 
-            startPos.Y.Scale, 
-            startPos.Y.Offset + delta.Y
-        )
-    end
-end)
-
--- Animasi buka
-MainFrame.Size = UDim2.new(0, 0, 0, 0)
-MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-
-TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back), {
-    Size = UDim2.new(0, 400, 0, 350),
-    Position = UDim2.new(0.5, -200, 0.5, -175)
-}):Play()
-
-print("Image UI Loaded! Asset ID: 127480462745832")
+print("🔍 Memulai pengecekan asset...")
