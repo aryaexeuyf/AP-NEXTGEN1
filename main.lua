@@ -1,973 +1,1839 @@
--- AP-NEXTGEN HUB v8.0 FINAL (UPDATED)
--- Compatible with: Synapse X, Script-Ware, KRNL, etc.
--- Author: APTECH
+--[[
+    AP-NEXTGEN HUB v9.0 ULTRA
+    Redesigned Landscape UI | All Features | Mobile Optimized
+    FLY V3 Logic | Admin ESP V2 | Block Spawner | Copy Avatar | Presets
+    by APTECH
+]]
 
--- ANTI-DUPLICATE
+-- Anti-duplicate
 if getgenv().APNEXTGEN_LOADED then return end
 getgenv().APNEXTGEN_LOADED = true
 
--- SERVICES
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+-- ==================== SERVICES ====================
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local CoreGui = game:GetService("CoreGui")
-local Workspace = game:GetService("Workspace")
-local Lighting = game:GetService("Lighting")
-local HttpService = game:GetService("HttpService")
-local MarketPlaceService = game:GetService("MarketplaceService")
-local StarterGui = game:GetService("StarterGui")
+local CoreGui          = game:GetService("CoreGui")
+local Workspace        = game:GetService("Workspace")
+local Lighting         = game:GetService("Lighting")
+local TeleportService  = game:GetService("TeleportService")
+local VirtualUser      = game:GetService("VirtualUser")
+local HttpService      = game:GetService("HttpService")
+local StarterGui       = game:GetService("StarterGui")
 
 local LocalPlayer = Players.LocalPlayer
+local Camera      = Workspace.CurrentCamera
 
--- CONFIG & STATE
+if not LocalPlayer.Character then
+    LocalPlayer.CharacterAdded:Wait()
+end
+
+-- ==================== CONFIG ====================
 local Config = {
-    WalkSpeed = 16,
-    JumpPower = 50,
-    Gravity = 196.2, -- Default Roblox Gravity
-    IsAdmin = false,
-    ESPNormal = false,
-    ESPAdmin = false,
-    FlySpeed = 1,
-    InfiniteJump = false
+    Speed        = 16,
+    JumpPower    = 50,
+    GodMode      = false,
+    GodModeType  = "Gen1",
+    Noclip       = false,
+    Flying       = false,
+    ESPPlayers   = false,
+    ESPBlocks    = false,
+    ESPAdmin     = false,
+    AutoFollow   = false,
+    AutoHeal     = false,
+    FullBright   = false,
+    AntiAFK      = false,
+    FPSBoost     = false,
+    InfiniteJump = false,
+    MoonGravity  = false,
+    ZoomUnlock   = false,
+    IsAdmin      = false,
 }
 
-local AdminPassword = "GEN1GO" -- PASSWORD TERSEMBUNYI, TIDAK MUNCUL DI UI
+-- ==================== STATES ====================
+local States = {
+    FollowingPlayer    = nil,
+    ESPPlayerFolder    = nil,
+    ESPBlockFolder     = nil,
+    AdminESPFolder     = nil,
+    NoclipConnection   = nil,
+    GodConnection      = nil,
+    BrightnessConnection = nil,
+    JumpConnection     = nil,
+    Connections        = {},
+    FlyActive          = false,
+    FlySpeedCount      = 1,
+    tpwalking          = false,
+    FlyBodyGyro        = nil,
+    FlyBodyVelocity    = nil,
+    FlyRenderConn      = nil,
+    upHeld             = false,
+    downHeld           = false,
+}
 
--- UI REFERENCES
-local ScreenGui = Instance.new("ScreenGui")
-local MainFrame = Instance.new("Frame")
+-- ==================== CLEANUP ====================
+local function Cleanup()
+    States.FlyActive  = false
+    States.tpwalking  = false
+    States.upHeld     = false
+    States.downHeld   = false
+    for _, conn in pairs(States.Connections) do
+        if conn then pcall(function() conn:Disconnect() end) end
+    end
+    for _, name in ipairs({"NoclipConnection","GodConnection","BrightnessConnection","JumpConnection","FlyRenderConn"}) do
+        if States[name] then pcall(function() States[name]:Disconnect() end); States[name] = nil end
+    end
+    if States.FlyBodyGyro     and States.FlyBodyGyro.Parent     then States.FlyBodyGyro:Destroy()     end
+    if States.FlyBodyVelocity and States.FlyBodyVelocity.Parent then States.FlyBodyVelocity:Destroy() end
+    if States.ESPPlayerFolder  then pcall(function() States.ESPPlayerFolder:Destroy()  end) end
+    if States.ESPBlockFolder   then pcall(function() States.ESPBlockFolder:Destroy()   end) end
+    if States.AdminESPFolder   then pcall(function() States.AdminESPFolder:Destroy()   end) end
+    getgenv().APNEXTGEN_LOADED = nil
+end
+
+-- ==================== THEME ====================
+local T = {
+    Bg          = Color3.fromRGB(11,  11,  17 ),
+    Surface     = Color3.fromRGB(20,  20,  30 ),
+    SurfaceHi   = Color3.fromRGB(32,  32,  48 ),
+    NavBg       = Color3.fromRGB(15,  15,  24 ),
+    Primary     = Color3.fromRGB(0,   170, 255),
+    Success     = Color3.fromRGB(0,   210, 110),
+    Warning     = Color3.fromRGB(255, 190, 40 ),
+    Error       = Color3.fromRGB(255,  55,  75),
+    Admin       = Color3.fromRGB(255, 210,  0 ),
+    Text        = Color3.fromRGB(235, 235, 255),
+    Muted       = Color3.fromRGB(145, 145, 175),
+    Border      = Color3.fromRGB(40,  40,  62 ),
+}
+
+-- ==================== HELPERS ====================
+local function Tween(obj, props, dur, style)
+    TweenService:Create(obj, TweenInfo.new(dur or 0.22, style or Enum.EasingStyle.Quart), props):Play()
+end
+
+local function Round(inst, r)
+    local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, r or 8); c.Parent = inst; return c
+end
+
+local function Stroke(inst, col, th)
+    local s = Instance.new("UIStroke"); s.Color = col or T.Border; s.Thickness = th or 1; s.Parent = inst; return s
+end
+
+local function Label(parent, text, size, color, font, align)
+    local l = Instance.new("TextLabel")
+    l.BackgroundTransparency = 1
+    l.Text        = text
+    l.TextSize    = size  or 11
+    l.TextColor3  = color or T.Text
+    l.Font        = font  or Enum.Font.Gotham
+    l.TextXAlignment = align or Enum.TextXAlignment.Left
+    l.Parent      = parent
+    return l
+end
+
+-- ==================== MAIN SCREENGUI ====================
+local SG = Instance.new("ScreenGui")
+SG.Name            = "APNEXTGEN_V9"
+SG.Parent          = CoreGui
+SG.ResetOnSpawn    = false
+SG.ZIndexBehavior  = Enum.ZIndexBehavior.Sibling
+SG.DisplayOrder    = 100
+
+-- ==================== MAIN FRAME (landscape 450 x 290) ====================
+local MF = Instance.new("Frame")
+MF.Name             = "MainFrame"
+MF.Size             = UDim2.new(0, 450, 0, 290)
+MF.Position         = UDim2.new(0.5, -225, 0.5, -145)
+MF.BackgroundColor3 = T.Bg
+MF.BorderSizePixel  = 0
+MF.ClipsDescendants = true
+MF.Active           = true
+Round(MF, 14)
+Stroke(MF, T.Border, 1.5)
+MF.Parent = SG
+
+-- ==================== TOP BAR ====================
 local TopBar = Instance.new("Frame")
-local ContentFrame = Instance.new("Frame")
-local TabButtons = {}
+TopBar.Size             = UDim2.new(1, 0, 0, 36)
+TopBar.BackgroundColor3 = T.Surface
+TopBar.BorderSizePixel  = 0
+TopBar.ZIndex           = 5
+Round(TopBar, 14)
+TopBar.Parent = MF
 
--- ESP STORAGE
-local ESPFolder = Instance.new("Folder")
-ESPFolder.Name = "AP_ESP_FOLDER"
-ESPFolder.Parent = CoreGui
+-- fix rounded corners only on top
+local TopBarFix = Instance.new("Frame")
+TopBarFix.Size             = UDim2.new(1, 0, 0, 12)
+TopBarFix.Position         = UDim2.new(0, 0, 1, -12)
+TopBarFix.BackgroundColor3 = T.Surface
+TopBarFix.BorderSizePixel  = 0
+TopBarFix.ZIndex           = 4
+TopBarFix.Parent           = TopBar
 
--- UTILITIES
-local function MakeDraggable(frame, handle)
-    local dragging = false
-    local dragInput, mousePos, framePos
+-- Avatar
+local AvImg = Instance.new("ImageLabel")
+AvImg.Size              = UDim2.new(0, 26, 0, 26)
+AvImg.Position          = UDim2.new(0, 6, 0.5, -13)
+AvImg.BackgroundColor3  = T.SurfaceHi
+AvImg.Image             = "https://www.roblox.com/headshot-thumbnail/image?userId="..LocalPlayer.UserId.."&width=150&height=150&format=png"
+AvImg.ZIndex            = 6
+Round(AvImg, 13)
+AvImg.Parent = TopBar
 
-    handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragInput = input
-            mousePos = input.Position
-            framePos = frame.Position
-            
-            input.Changed:Connect(function()
-                if input.UserInputType == Enum.UserInputType.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
+-- Name
+local NameLbl = Label(TopBar, LocalPlayer.Name, 11, T.Text, Enum.Font.GothamBold)
+NameLbl.Size     = UDim2.new(0, 85, 0, 13)
+NameLbl.Position = UDim2.new(0, 36, 0, 5)
+NameLbl.ZIndex   = 6
+NameLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
-    handle.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - mousePos
-            frame.Position = UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
-        end
-    end)
+-- Game mini info
+local GameLbl = Label(TopBar, "...", 8, T.Muted)
+GameLbl.Size     = UDim2.new(0, 85, 0, 11)
+GameLbl.Position = UDim2.new(0, 36, 0, 20)
+GameLbl.ZIndex   = 6
+GameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+-- Server info (center)
+local SrvLbl = Label(TopBar, "Loading...", 9, T.Primary, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+SrvLbl.Size     = UDim2.new(0, 200, 0, 14)
+SrvLbl.Position = UDim2.new(0.5, -100, 0.5, -7)
+SrvLbl.ZIndex   = 6
+SrvLbl.TextTruncate = Enum.TextTruncate.AtEnd
+
+-- Minimize button
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size             = UDim2.new(0, 24, 0, 20)
+MinBtn.Position         = UDim2.new(1, -52, 0.5, -10)
+MinBtn.BackgroundColor3 = T.SurfaceHi
+MinBtn.Text             = "−"
+MinBtn.TextColor3       = T.Muted
+MinBtn.TextSize         = 16
+MinBtn.Font             = Enum.Font.GothamBold
+MinBtn.ZIndex           = 7
+Round(MinBtn, 5)
+MinBtn.Parent = TopBar
+
+-- Close button
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size             = UDim2.new(0, 24, 0, 20)
+CloseBtn.Position         = UDim2.new(1, -26, 0.5, -10)
+CloseBtn.BackgroundColor3 = T.Error
+CloseBtn.Text             = "✕"
+CloseBtn.TextColor3       = Color3.new(1,1,1)
+CloseBtn.TextSize         = 11
+CloseBtn.Font             = Enum.Font.GothamBold
+CloseBtn.ZIndex           = 7
+Round(CloseBtn, 5)
+CloseBtn.Parent = TopBar
+
+-- Server info updater
+local function UpdateSrv()
+    local pc = #Players:GetPlayers()
+    local mp = 0; pcall(function() mp = Players.MaxPlayers end)
+    GameLbl.Text = game.Name:sub(1, 14)
+    SrvLbl.Text  = "🌐 Global | ID:"..tostring(game.PlaceId):sub(1,9).." | "..pc.."/"..mp
+end
+UpdateSrv()
+spawn(function() while SrvLbl.Parent do wait(5); UpdateSrv() end end)
+
+-- ==================== DRAG LOGIC ====================
+local _drag, _ds, _sp = false, nil, nil
+TopBar.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        _drag = true; _ds = i.Position; _sp = MF.Position
+    end
+end)
+UserInputService.InputChanged:Connect(function(i)
+    if _drag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        local d = i.Position - _ds
+        MF.Position = UDim2.new(_sp.X.Scale, _sp.X.Offset + d.X, _sp.Y.Scale, _sp.Y.Offset + d.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then _drag = false end
+end)
+
+-- ==================== LEFT NAV ====================
+local NavFrame = Instance.new("ScrollingFrame")
+NavFrame.Size                 = UDim2.new(0, 50, 1, -36)
+NavFrame.Position             = UDim2.new(0, 0, 0, 36)
+NavFrame.BackgroundColor3     = T.NavBg
+NavFrame.BorderSizePixel      = 0
+NavFrame.ScrollBarThickness   = 0
+NavFrame.AutomaticCanvasSize  = Enum.AutomaticSize.Y
+NavFrame.ScrollingDirection   = Enum.ScrollingDirection.Y
+NavFrame.Parent               = MF
+
+local NavLayout = Instance.new("UIListLayout")
+NavLayout.Padding             = UDim.new(0, 2)
+NavLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+NavLayout.Parent              = NavFrame
+
+local NavPad = Instance.new("UIPadding")
+NavPad.PaddingTop  = UDim.new(0, 4)
+NavPad.PaddingLeft = UDim.new(0, 3)
+NavPad.PaddingRight= UDim.new(0, 3)
+NavPad.Parent      = NavFrame
+
+-- Divider
+local Div = Instance.new("Frame")
+Div.Size             = UDim2.new(0, 1, 1, -36)
+Div.Position         = UDim2.new(0, 50, 0, 36)
+Div.BackgroundColor3 = T.Border
+Div.BorderSizePixel  = 0
+Div.Parent           = MF
+
+-- ==================== CONTENT AREA ====================
+local ContentArea = Instance.new("Frame")
+ContentArea.Size             = UDim2.new(1, -51, 1, -36)
+ContentArea.Position         = UDim2.new(0, 51, 0, 36)
+ContentArea.BackgroundTransparency = 1
+ContentArea.ClipsDescendants = true
+ContentArea.Parent           = MF
+
+-- ==================== PAGE SYSTEM ====================
+local Pages      = {}
+local NavButtons = {}
+local ActivePage = nil
+
+local function CreatePage(name)
+    local page = Instance.new("ScrollingFrame")
+    page.Name                = name
+    page.Size                = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel     = 0
+    page.ScrollBarThickness  = 3
+    page.ScrollBarImageColor3= T.Primary
+    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    page.ScrollingDirection  = Enum.ScrollingDirection.Y
+    page.Visible             = false
+    page.Parent              = ContentArea
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding  = UDim.new(0, 5)
+    layout.Parent   = page
+
+    local pad = Instance.new("UIPadding")
+    pad.PaddingTop    = UDim.new(0, 5)
+    pad.PaddingLeft   = UDim.new(0, 5)
+    pad.PaddingRight  = UDim.new(0, 5)
+    pad.PaddingBottom = UDim.new(0, 5)
+    pad.Parent        = page
+
+    Pages[name] = page
+    return page
 end
 
-local function Roundify(obj, radius)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, radius or 6)
-    c.Parent = obj
-    return c
-end
-
-local function CreateElement(class, props)
-    local el = Instance.new(class)
-    for k, v in pairs(props) do
-        if type(v) == "table" and k ~= "Size" and k ~= "Position" then
-            for subk, subv in pairs(v) do el[subk][subk] = subv end -- Simple handling for UDim/Color3 if needed
+local function SwitchPage(name)
+    for pname, page in pairs(Pages) do page.Visible = (pname == name) end
+    ActivePage = name
+    for bname, btn in pairs(NavButtons) do
+        if bname == name then
+            Tween(btn, {BackgroundColor3 = T.Primary}, 0.18)
+            Tween(btn, {TextColor3 = Color3.new(1,1,1)}, 0.18)
         else
-            el[k] = v
+            Tween(btn, {BackgroundColor3 = T.NavBg}, 0.18)
+            Tween(btn, {TextColor3 = T.Muted}, 0.18)
         end
     end
-    return el
 end
 
--- UI THEME COLORS
-local Colors = {
-    Main = Color3.fromRGB(20, 20, 25),
-    Secondary = Color3.fromRGB(30, 30, 40),
-    Primary = Color3.fromRGB(0, 200, 255),
-    Admin = Color3.fromRGB(255, 215, 0),
-    Success = Color3.fromRGB(0, 255, 130),
-    Text = Color3.fromRGB(255, 255, 255),
-    TextMuted = Color3.fromRGB(150, 150, 160)
-}
+local function MakeNavBtn(icon, pageName)
+    local btn = Instance.new("TextButton")
+    btn.Size             = UDim2.new(0, 42, 0, 32)
+    btn.BackgroundColor3 = T.NavBg
+    btn.Text             = icon
+    btn.TextColor3       = T.Muted
+    btn.TextSize         = 14
+    btn.Font             = Enum.Font.GothamBold
+    btn.BorderSizePixel  = 0
+    btn.AutoButtonColor  = false
+    Round(btn, 7)
+    btn.Parent = NavFrame
+    NavButtons[pageName] = btn
+    btn.MouseButton1Click:Connect(function() SwitchPage(pageName) end)
+    return btn
+end
 
--- INIT GUI
-ScreenGui.Name = "APNEXTGEN_V8"
-ScreenGui.Parent = CoreGui
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.ResetOnSpawn = false
+-- ==================== UI COMPONENT BUILDERS ====================
+local function Section(parent, title)
+    local card = Instance.new("Frame")
+    card.Size            = UDim2.new(1, 0, 0, 0)
+    card.AutomaticSize   = Enum.AutomaticSize.Y
+    card.BackgroundColor3= T.Surface
+    card.BorderSizePixel = 0
+    Round(card, 8)
+    card.Parent = parent
 
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 500, 0, 350)
-MainFrame.Position = UDim2.new(0.5, -250, 0.5, -175)
-MainFrame.BackgroundColor3 = Colors.Main
-Roundify(MainFrame, 12)
-MainFrame.Parent = ScreenGui
+    local ttl = Label(card, title, 10, T.Primary, Enum.Font.GothamBold)
+    ttl.Size     = UDim2.new(1, -10, 0, 20)
+    ttl.Position = UDim2.new(0, 8, 0, 3)
 
--- HEADER / INFO MONITOR
-TopBar.Name = "TopBar"
-TopBar.Size = UDim2.new(1, 0, 0, 60)
-TopBar.BackgroundColor3 = Colors.Secondary
-TopBar.Parent = MainFrame
-Roundify(TopBar, 12)
-local TopFix = Instance.new("Frame") -- Fix rounded corners bottom
-TopFix.Size = UDim2.new(1, 0, 0, 20)
-TopFix.Position = UDim2.new(0, 0, 1, -20)
-TopFix.BackgroundColor3 = Colors.Secondary
-TopFix.BorderSizePixel = 0
-TopFix.Parent = TopBar
+    local line = Instance.new("Frame")
+    line.Size             = UDim2.new(1, -16, 0, 1)
+    line.Position         = UDim2.new(0, 8, 0, 23)
+    line.BackgroundColor3 = T.Border
+    line.BorderSizePixel  = 0
+    line.Parent           = card
 
--- Profile Picture
-local AvatarImg = Instance.new("ImageLabel")
-AvatarImg.Size = UDim2.new(0, 40, 0, 40)
-AvatarImg.Position = UDim2.new(0, 10, 0.5, -20)
-AvatarImg.BackgroundColor3 = Colors.Secondary
-AvatarImg.Image = "rbxthumb://type=AvatarHeadShot&id="..LocalPlayer.UserId.."&w=150&h=150"
-Roundify(AvatarImg, 20)
-AvatarImg.Parent = TopBar
+    local cont = Instance.new("Frame")
+    cont.Name            = "Cont"
+    cont.Size            = UDim2.new(1, -10, 0, 0)
+    cont.Position        = UDim2.new(0, 5, 0, 27)
+    cont.AutomaticSize   = Enum.AutomaticSize.Y
+    cont.BackgroundTransparency = 1
+    cont.Parent          = card
 
--- User Info
-local UserText = Instance.new("TextLabel")
-UserText.Size = UDim2.new(0, 200, 0, 20)
-UserText.Position = UDim2.new(0, 60, 0, 10)
-UserText.BackgroundTransparency = 1
-UserText.Text = LocalPlayer.Name
-UserText.TextColor3 = Colors.Text
-UserText.TextXAlignment = Enum.TextXAlignment.Left
-UserText.Font = Enum.Font.GothamBold
-UserText.TextSize = 14
-UserText.Parent = TopBar
+    local cL = Instance.new("UIListLayout")
+    cL.Padding = UDim.new(0, 4)
+    cL.Parent  = cont
 
--- Monitor Info (Game Name, Serial, Players)
-local InfoText = Instance.new("TextLabel")
-InfoText.Size = UDim2.new(0, 300, 0, 35)
-InfoText.Position = UDim2.new(0, 60, 0, 30)
-InfoText.BackgroundTransparency = 1
-InfoText.Text = "Loading Info..."
-InfoText.TextColor3 = Colors.TextMuted
-InfoText.TextXAlignment = Enum.TextXAlignment.Left
-InfoText.Font = Enum.Font.Gotham
-InfoText.TextSize = 10
-InfoText.TextWrapped = true
-InfoText.Parent = TopBar
+    local cP = Instance.new("UIPadding")
+    cP.PaddingBottom = UDim.new(0, 7)
+    cP.Parent        = card
 
--- Update Info Monitor
+    return cont
+end
+
+local function Toggle(parent, text, callback)
+    local row = Instance.new("Frame")
+    row.Size             = UDim2.new(1, 0, 0, 26)
+    row.BackgroundTransparency = 1
+    row.Parent           = parent
+
+    local lbl = Label(row, text, 10, T.Text)
+    lbl.Size = UDim2.new(0.7, 0, 1, 0)
+
+    local btn = Instance.new("TextButton")
+    btn.Size             = UDim2.new(0, 42, 0, 18)
+    btn.Position         = UDim2.new(1, -42, 0.5, -9)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 62)
+    btn.Text             = "OFF"
+    btn.TextColor3       = T.Muted
+    btn.TextSize         = 9
+    btn.Font             = Enum.Font.GothamBold
+    btn.AutoButtonColor  = false
+    Round(btn, 9)
+    btn.Parent = row
+
+    local on = false
+    btn.MouseButton1Click:Connect(function()
+        on = not on
+        btn.Text = on and "ON" or "OFF"
+        Tween(btn, {BackgroundColor3 = on and T.Success or Color3.fromRGB(45,45,62)}, 0.18)
+        Tween(btn, {TextColor3 = on and Color3.new(1,1,1) or T.Muted}, 0.18)
+        if callback then callback(on) end
+    end)
+
+    local self = {Row = row, Btn = btn, _on = false}
+    function self:Set(state)
+        on = state; self._on = state
+        btn.Text = on and "ON" or "OFF"
+        btn.BackgroundColor3 = on and T.Success or Color3.fromRGB(45,45,62)
+        btn.TextColor3       = on and Color3.new(1,1,1) or T.Muted
+    end
+    return self
+end
+
+local function Slider(parent, text, min, max, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size             = UDim2.new(1, 0, 0, 42)
+    frame.BackgroundTransparency = 1
+    frame.Parent           = parent
+
+    local topRow = Instance.new("Frame")
+    topRow.Size            = UDim2.new(1, 0, 0, 16)
+    topRow.BackgroundTransparency = 1
+    topRow.Parent          = frame
+
+    local lbl = Label(topRow, text, 10, T.Text)
+    lbl.Size = UDim2.new(0.62, 0, 1, 0)
+
+    local vbox = Instance.new("TextBox")
+    vbox.Size             = UDim2.new(0, 44, 0, 16)
+    vbox.Position         = UDim2.new(1, -44, 0, 0)
+    vbox.BackgroundColor3 = T.SurfaceHi
+    vbox.Text             = tostring(default)
+    vbox.TextColor3       = T.Primary
+    vbox.TextSize         = 9
+    vbox.Font             = Enum.Font.GothamBold
+    vbox.ClearTextOnFocus = false
+    Round(vbox, 4)
+    vbox.Parent = topRow
+
+    local track = Instance.new("Frame")
+    track.Size             = UDim2.new(1, 0, 0, 4)
+    track.Position         = UDim2.new(0, 0, 0, 28)
+    track.BackgroundColor3 = Color3.fromRGB(38, 38, 55)
+    track.BorderSizePixel  = 0
+    Round(track, 2)
+    track.Parent = frame
+
+    local pct = (default - min) / math.max(max - min, 1)
+    local fill = Instance.new("Frame")
+    fill.Size             = UDim2.new(pct, 0, 1, 0)
+    fill.BackgroundColor3 = T.Primary
+    fill.BorderSizePixel  = 0
+    Round(fill, 2)
+    fill.Parent = track
+
+    local knob = Instance.new("Frame")
+    knob.Size             = UDim2.new(0, 12, 0, 12)
+    knob.Position         = UDim2.new(pct, -6, 0.5, -6)
+    knob.BackgroundColor3 = Color3.new(1, 1, 1)
+    Round(knob, 6)
+    knob.Parent = track
+
+    local dragging = false
+    local function doUpdate(input)
+        local p = math.clamp((input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+        local v = math.floor(min + (max - min) * p)
+        vbox.Text = tostring(v)
+        fill.Size     = UDim2.new(p, 0, 1, 0)
+        knob.Position = UDim2.new(p, -6, 0.5, -6)
+        if callback then callback(v) end
+    end
+
+    track.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; doUpdate(i)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            doUpdate(i)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    vbox.FocusLost:Connect(function()
+        local v = math.clamp(tonumber(vbox.Text) or default, min, max)
+        vbox.Text = tostring(v)
+        local p = (v - min) / math.max(max - min, 1)
+        fill.Size     = UDim2.new(p, 0, 1, 0)
+        knob.Position = UDim2.new(p, -6, 0.5, -6)
+        if callback then callback(v) end
+    end)
+
+    return frame
+end
+
+local function Btn(parent, text, style, callback)
+    local b = Instance.new("TextButton")
+    b.Size             = UDim2.new(1, 0, 0, 26)
+    local col = style == "primary" and T.Primary
+             or style == "success"  and T.Success
+             or style == "danger"   and T.Error
+             or style == "admin"    and T.Admin
+             or T.SurfaceHi
+    b.BackgroundColor3 = col
+    b.Text             = text
+    b.TextColor3       = style == "admin" and Color3.new(0,0,0) or Color3.new(1,1,1)
+    b.TextSize         = 10
+    b.Font             = Enum.Font.GothamBold
+    b.BorderSizePixel  = 0
+    b.AutoButtonColor  = false
+    Round(b, 6)
+    b.Parent = parent
+
+    b.MouseButton1Click:Connect(function()
+        Tween(b, {BackgroundColor3 = col:Lerp(Color3.new(1,1,1), 0.25)}, 0.07)
+        wait(0.07)
+        Tween(b, {BackgroundColor3 = col}, 0.1)
+        if callback then callback() end
+    end)
+    return b
+end
+
+local function PlayerList(parent, height, onSelect)
+    local sf = Instance.new("ScrollingFrame")
+    sf.Size              = UDim2.new(1, 0, 0, height)
+    sf.BackgroundColor3  = T.SurfaceHi
+    sf.BackgroundTransparency = 0.4
+    sf.BorderSizePixel   = 0
+    sf.ScrollBarThickness= 3
+    sf.CanvasSize        = UDim2.new(0, 0, 0, 0)
+    Round(sf, 6)
+    sf.Parent = parent
+
+    local ll = Instance.new("UIListLayout")
+    ll.Padding = UDim.new(0, 3)
+    ll.Parent  = sf
+
+    local selected = nil
+    local btns = {}
+
+    local function Refresh()
+        for _, c in pairs(sf:GetChildren()) do
+            if c:IsA("TextButton") then c:Destroy() end
+        end
+        btns = {}
+        local count = 0
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                count = count + 1
+                local b = Instance.new("TextButton")
+                b.Size             = UDim2.new(1, -6, 0, 24)
+                b.Position         = UDim2.new(0, 3, 0, 0)
+                b.BackgroundColor3 = (selected == p) and T.Primary or T.Surface
+                b.Text             = p.Name
+                b.TextColor3       = Color3.new(1, 1, 1)
+                b.TextSize         = 10
+                b.Font             = Enum.Font.Gotham
+                b.BorderSizePixel  = 0
+                b.AutoButtonColor  = false
+                Round(b, 5)
+                b.Parent = sf
+                table.insert(btns, b)
+                b.MouseButton1Click:Connect(function()
+                    selected = p
+                    for _, bb in pairs(btns) do
+                        Tween(bb, {BackgroundColor3 = T.Surface}, 0.12)
+                    end
+                    Tween(b, {BackgroundColor3 = T.Primary}, 0.12)
+                    if onSelect then onSelect(p) end
+                end)
+            end
+        end
+        sf.CanvasSize = UDim2.new(0, 0, 0, count * 27)
+    end
+
+    Refresh()
+    Players.PlayerAdded:Connect(Refresh)
+    Players.PlayerRemoving:Connect(Refresh)
+
+    local self = {}
+    function self:GetSelected() return selected end
+    function self:Refresh() Refresh() end
+    return self
+end
+
+-- ==================== CREATE ALL PAGES ====================
+-- Dashboard
+MakeNavBtn("📊", "Dash")
+local DashPage = CreatePage("Dash")
+
+-- Movement
+MakeNavBtn("🏃", "Move")
+local MovePage = CreatePage("Move")
+
+-- Fly
+MakeNavBtn("✈️", "Fly")
+local FlyPage = CreatePage("Fly")
+
+-- ESP
+MakeNavBtn("👁️", "ESP")
+local ESPPage = CreatePage("ESP")
+
+-- Teleport
+MakeNavBtn("🎯", "TP")
+local TPPage = CreatePage("TP")
+
+-- God
+MakeNavBtn("🛡️", "God")
+local GodPage = CreatePage("God")
+
+-- World
+MakeNavBtn("🧱", "World")
+local WorldPage = CreatePage("World")
+
+-- Avatar
+MakeNavBtn("👤", "Ava")
+local AvaPage = CreatePage("Ava")
+
+-- Presets
+MakeNavBtn("💾", "Save")
+local PrePage = CreatePage("Save")
+
+-- Admin
+MakeNavBtn("🔐", "Admin")
+local AdminPage = CreatePage("Admin")
+
+-- Utility
+MakeNavBtn("⚙️", "Util")
+local UtilPage = CreatePage("Util")
+
+-- ==================== ESP FOLDERS ====================
+States.ESPPlayerFolder = Instance.new("Folder"); States.ESPPlayerFolder.Name = "ESP_P";  States.ESPPlayerFolder.Parent = CoreGui
+States.ESPBlockFolder  = Instance.new("Folder"); States.ESPBlockFolder.Name  = "ESP_B";  States.ESPBlockFolder.Parent  = CoreGui
+States.AdminESPFolder  = Instance.new("Folder"); States.AdminESPFolder.Name  = "ESP_A";  States.AdminESPFolder.Parent  = CoreGui
+
+-- ====================================================================
+-- ======================== DASHBOARD PAGE ============================
+-- ====================================================================
+local dsCard  = Section(DashPage, "📊 SERVER MONITOR")
+local plrCard = Section(DashPage, "👤 PLAYER INFO")
+
+local function StatRow(parent, ltext, defaultVal, valColor)
+    local row = Instance.new("Frame")
+    row.Size             = UDim2.new(1, 0, 0, 18)
+    row.BackgroundTransparency = 1
+    row.Parent           = parent
+    local l = Label(row, ltext, 9, T.Muted)
+    l.Size = UDim2.new(0.52, 0, 1, 0)
+    local v = Label(row, defaultVal, 9, valColor or T.Primary, Enum.Font.GothamBold, Enum.TextXAlignment.Right)
+    v.Size     = UDim2.new(0.48, 0, 1, 0)
+    v.Position = UDim2.new(0.52, 0, 0, 0)
+    return v
+end
+
+local sGameName = StatRow(dsCard,  "Game Name:",   game.Name:sub(1,18),         T.Primary)
+local sPlaceId  = StatRow(dsCard,  "Place ID:",    tostring(game.PlaceId),      T.Warning)
+local sJobId    = StatRow(dsCard,  "Job ID:",      game.JobId:sub(1,12).."...", T.Muted)
+local sPlayers  = StatRow(dsCard,  "Players:",     "?/?",                        T.Success)
+local sServer   = StatRow(dsCard,  "Server Type:", "🌐 Global",                  T.Primary)
+
+local sUser    = StatRow(plrCard, "Username:",     LocalPlayer.Name,            T.Primary)
+local sUID     = StatRow(plrCard, "User ID:",      tostring(LocalPlayer.UserId),T.Muted)
+local sDisplay = StatRow(plrCard, "Display Name:", LocalPlayer.DisplayName,     T.Text)
+local sTeam    = StatRow(plrCard, "Team:",         "None",                       T.Warning)
+
 spawn(function()
-    local success, prod = pcall(function() return MarketPlaceService:GetProductInfo(game.PlaceId) end)
-    local GameName = success and prod.Name or "Unknown Game"
-    local ServerId = game.JobId
-    
-    while true do
-        local pCount = #Players:GetPlayers()
-        local maxP = Players.MaxPlayers
-        if maxP == 0 then maxP = "∞" end
-        
-        InfoText.Text = string.format("GAME: %s\nSERIAL: %s\nPLAYERS: %d/%s", GameName, ServerId:sub(1,8), pCount, tostring(maxP))
+    while sPlayers.Parent do
+        local pc = #Players:GetPlayers(); local mp = 0; pcall(function() mp = Players.MaxPlayers end)
+        sPlayers.Text  = pc.."/"..mp
+        sGameName.Text = game.Name:sub(1,18)
+        sJobId.Text    = game.JobId:sub(1,12).."..."
+        if LocalPlayer.Team then sTeam.Text = LocalPlayer.Team.Name end
         wait(5)
     end
 end)
 
--- CLOSE / MINIMIZE
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -40, 0, 15)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-CloseBtn.Text = "×"
-CloseBtn.TextColor3 = Color3.new(1,1,1)
-CloseBtn.TextSize = 20
-CloseBtn.Font = Enum.Font.GothamBold
-Roundify(CloseBtn, 15)
-CloseBtn.Parent = TopBar
-CloseBtn.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
-    getgenv().APNEXTGEN_LOADED = nil
+-- ====================================================================
+-- ======================== MOVEMENT PAGE ============================
+-- ====================================================================
+local mvCard  = Section(MovePage, "🏃 SPEED & JUMP")
+Slider(mvCard, "Walk Speed",  1, 500, 16, function(v)
+    Config.Speed = v
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = v
+    end
 end)
 
--- SIDEBAR & CONTENT
-local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 120, 1, -60)
-Sidebar.Position = UDim2.new(0, 0, 0, 60)
-Sidebar.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-Sidebar.Parent = MainFrame
+Slider(mvCard, "Jump Power",  1, 500, 50, function(v)
+    Config.JumpPower = v
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        local h = LocalPlayer.Character.Humanoid
+        if h.UseJumpPower then h.JumpPower = v else h.JumpHeight = v / 10 end
+    end
+end)
 
-ContentFrame.Name = "ContentFrame"
-ContentFrame.Size = UDim2.new(1, -120, 1, -60)
-ContentFrame.Position = UDim2.new(0, 120, 0, 60)
-ContentFrame.BackgroundTransparency = 1
-ContentFrame.Parent = MainFrame
+local jumpCard = Section(MovePage, "⬆️ JUMP OPTIONS")
+Toggle(jumpCard, "Infinite Jump", function(on)
+    Config.InfiniteJump = on
+    if on then
+        local conn = UserInputService.JumpRequest:Connect(function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+        table.insert(States.Connections, conn)
+    end
+end)
 
--- TAB CREATOR
-local Tabs = {}
-local function CreateTab(name, id)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 40)
-    btn.Position = UDim2.new(0, 5, 0, #Tabs * 45 + 5)
-    btn.BackgroundColor3 = Colors.Secondary
-    btn.Text = name
-    btn.TextColor3 = Colors.TextMuted
-    btn.Font = Enum.Font.Gotham
-    btn.TextSize = 12
-    btn.Parent = Sidebar
-    Roundify(btn, 6)
-    
-    local page = Instance.new("ScrollingFrame")
-    page.Size = UDim2.new(1, -10, 1, -10)
-    page.Position = UDim2.new(0, 5, 0, 5)
-    page.BackgroundTransparency = 1
-    page.Visible = false
-    page.ScrollBarThickness = 4
-    page.Parent = ContentFrame
-    
-    local list = Instance.new("UIListLayout")
-    list.Padding = UDim.new(0, 10)
-    list.Parent = page
+local gravCard = Section(MovePage, "🌙 GRAVITY")
+Toggle(gravCard, "Moon Gravity (Low Gravity)", function(on)
+    Config.MoonGravity = on
+    workspace.Gravity  = on and 20 or 196.2
+end)
+Slider(gravCard, "Custom Gravity", 5, 350, 196, function(v)
+    workspace.Gravity = v
+end)
 
-    btn.MouseButton1Click:Connect(function()
-        for _, t in pairs(Tabs) do
-            t.Page.Visible = false
-            t.Btn.TextColor3 = Colors.TextMuted
-            t.Btn.BackgroundColor3 = Colors.Secondary
-        end
-        page.Visible = true
-        btn.TextColor3 = Colors.Primary
-        btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    end)
+Btn(mvCard, "Reset Speed & Jump", "normal", function()
+    Config.Speed = 16; Config.JumpPower = 50
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        local h = LocalPlayer.Character.Humanoid
+        h.WalkSpeed = 16
+        if h.UseJumpPower then h.JumpPower = 50 else h.JumpHeight = 7.2 end
+    end
+end)
 
-    table.insert(Tabs, {Btn = btn, Page = page})
-    return page
-end
+-- ====================================================================
+-- ========================== FLY PAGE ================================
+-- ====================================================================
+-- Fly system using FLY GUI V3 logic:
+-- • TranslateBy(hum.MoveDirection) * flySpeedCount   → horizontal speed multiplier
+-- • BodyGyro + BodyVelocity via RenderStepped        → smooth physics / tilt
+-- • Up/Down buttons → direct CFrame vertical movement (held)
 
--- 1. MAIN TAB (FLY PANEL)
-local TabMain = CreateTab("🏠 Main", 1)
+local flyCard    = Section(FlyPage, "✈️ FLY CONTROL")
+local noclipCard = Section(FlyPage, "🔮 NOCLIP")
 
--- FLY GUI CONTAINER (Based on Sample Script Style)
-local FlyPanel = Instance.new("Frame")
-FlyPanel.Name = "FlyPanel"
-FlyPanel.Size = UDim2.new(0, 190, 0, 85) -- Ukuran diperbesar sedikit untuk muat tombol
-FlyPanel.BackgroundColor3 = Color3.fromRGB(163, 255, 137) -- Warna background sampel
-FlyPanel.BorderSizePixel = 0
-FlyPanel.Parent = TabMain
-Roundify(FlyPanel, 0) -- Square corners as per sample
-FlyPanel.LayoutOrder = 1
+local flySpeedCount = 1  -- speed multiplier (1-20)
 
--- FLY BUTTONS (LOGIC FROM SAMPLE)
-local up = Instance.new("TextButton")
-up.Name = "up"
-up.Size = UDim2.new(0, 44, 0, 28)
-up.BackgroundColor3 = Color3.fromRGB(79, 255, 152)
-up.Text = "UP"
-up.TextColor3 = Color3.new(0,0,0)
-up.TextSize = 14
-up.Parent = FlyPanel
+-- Speed counter row
+local spdRow = Instance.new("Frame")
+spdRow.Size             = UDim2.new(1, 0, 0, 26)
+spdRow.BackgroundTransparency = 1
+spdRow.Parent           = flyCard
 
-local down = Instance.new("TextButton")
-down.Name = "down"
-down.Size = UDim2.new(0, 44, 0, 28)
-down.Position = UDim2.new(0, 0, 0.49, 0)
-down.BackgroundColor3 = Color3.fromRGB(215, 255, 121)
-down.Text = "DOWN"
-down.TextColor3 = Color3.new(0,0,0)
-down.TextSize = 14
-down.Parent = FlyPanel
+local spdLbl = Label(spdRow, "Fly Speed:", 10, T.Text)
+spdLbl.Size = UDim2.new(0.36, 0, 1, 0)
 
-local onof = Instance.new("TextButton")
-onof.Name = "onof"
-onof.Size = UDim2.new(0, 56, 0, 28)
-onof.Position = UDim2.new(0.702, 0, 0.49, 0)
-onof.BackgroundColor3 = Color3.fromRGB(255, 249, 74)
-onof.Text = "FLY"
-onof.TextColor3 = Color3.new(0,0,0)
-onof.TextSize = 14
-onof.Parent = FlyPanel
+local flyMinB = Instance.new("TextButton")
+flyMinB.Size             = UDim2.new(0, 24, 0, 20)
+flyMinB.Position         = UDim2.new(0.38, 0, 0.5, -10)
+flyMinB.BackgroundColor3 = T.SurfaceHi
+flyMinB.Text             = "−"
+flyMinB.TextColor3       = T.Text
+flyMinB.TextSize         = 14
+flyMinB.Font             = Enum.Font.GothamBold
+flyMinB.AutoButtonColor  = false
+Round(flyMinB, 5)
+flyMinB.Parent = spdRow
 
-local TextLabel = Instance.new("TextLabel")
-TextLabel.Size = UDim2.new(0, 100, 0, 28)
-TextLabel.Position = UDim2.new(0.469, 0, 0, 0)
-TextLabel.BackgroundColor3 = Color3.fromRGB(242, 60, 255)
-TextLabel.Text = "FLY GUI V3"
-TextLabel.TextColor3 = Color3.new(0,0,0)
-TextLabel.TextScaled = true
-TextLabel.Parent = FlyPanel
+local flySpdDisp = Instance.new("TextLabel")
+flySpdDisp.Size             = UDim2.new(0, 30, 0, 20)
+flySpdDisp.Position         = UDim2.new(0.38, 26, 0.5, -10)
+flySpdDisp.BackgroundColor3 = T.Surface
+flySpdDisp.Text             = "1"
+flySpdDisp.TextColor3       = T.Primary
+flySpdDisp.TextSize         = 11
+flySpdDisp.Font             = Enum.Font.GothamBold
+flySpdDisp.TextXAlignment   = Enum.TextXAlignment.Center
+Round(flySpdDisp, 5)
+flySpdDisp.Parent = spdRow
 
-local plus = Instance.new("TextButton")
-plus.Name = "plus"
-plus.Size = UDim2.new(0, 45, 0, 28)
-plus.Position = UDim2.new(0.231, 0, 0, 0)
-plus.BackgroundColor3 = Color3.fromRGB(133, 145, 255)
-plus.Text = "+"
-plus.TextColor3 = Color3.new(0,0,0)
-plus.TextScaled = true
-plus.Parent = FlyPanel
+local flyPlusB = Instance.new("TextButton")
+flyPlusB.Size             = UDim2.new(0, 24, 0, 20)
+flyPlusB.Position         = UDim2.new(0.38, 58, 0.5, -10)
+flyPlusB.BackgroundColor3 = T.SurfaceHi
+flyPlusB.Text             = "+"
+flyPlusB.TextColor3       = T.Text
+flyPlusB.TextSize         = 14
+flyPlusB.Font             = Enum.Font.GothamBold
+flyPlusB.AutoButtonColor  = false
+Round(flyPlusB, 5)
+flyPlusB.Parent = spdRow
 
-local speed = Instance.new("TextButton")
-speed.Name = "speed"
-speed.Size = UDim2.new(0, 44, 0, 28)
-speed.Position = UDim2.new(0.468, 0, 0.49, 0)
-speed.BackgroundColor3 = Color3.fromRGB(255, 85, 0)
-speed.Text = "1"
-speed.TextColor3 = Color3.new(0,0,0)
-speed.TextScaled = true
-speed.Parent = FlyPanel
+-- Up / Down row
+local udRow = Instance.new("Frame")
+udRow.Size             = UDim2.new(1, 0, 0, 26)
+udRow.BackgroundTransparency = 1
+udRow.Parent           = flyCard
 
-local mine = Instance.new("TextButton")
-mine.Name = "mine"
-mine.Size = UDim2.new(0, 45, 0, 29)
-mine.Position = UDim2.new(0.231, 0, 0.49, 0)
-mine.BackgroundColor3 = Color3.fromRGB(123, 255, 247)
-mine.Text = "-"
-mine.TextColor3 = Color3.new(0,0,0)
-mine.TextScaled = true
-mine.Parent = FlyPanel
+local flyUpB = Instance.new("TextButton")
+flyUpB.Size             = UDim2.new(0.49, 0, 0, 24)
+flyUpB.BackgroundColor3 = T.SurfaceHi
+flyUpB.Text             = "▲  UP"
+flyUpB.TextColor3       = T.Text
+flyUpB.TextSize         = 10
+flyUpB.Font             = Enum.Font.GothamBold
+flyUpB.AutoButtonColor  = false
+Round(flyUpB, 6)
+flyUpB.Parent = udRow
 
-local closebutton = Instance.new("TextButton")
-closebutton.Name = "Close"
-closebutton.Size = UDim2.new(0, 45, 0, 28)
-closebutton.Position = UDim2.new(0, 0, -1, 27)
-closebutton.BackgroundColor3 = Color3.fromRGB(225, 25, 0)
-closebutton.Text = "X"
-closebutton.TextSize = 30
-closebutton.Parent = FlyPanel
+local flyDnB = Instance.new("TextButton")
+flyDnB.Size             = UDim2.new(0.49, 0, 0, 24)
+flyDnB.Position         = UDim2.new(0.51, 0, 0, 0)
+flyDnB.BackgroundColor3 = T.SurfaceHi
+flyDnB.Text             = "▼  DOWN"
+flyDnB.TextColor3       = T.Text
+flyDnB.TextSize         = 10
+flyDnB.Font             = Enum.Font.GothamBold
+flyDnB.AutoButtonColor  = false
+Round(flyDnB, 6)
+flyDnB.Parent = udRow
 
-local mini = Instance.new("TextButton")
-mini.Name = "minimize"
-mini.Size = UDim2.new(0, 45, 0, 28)
-mini.Position = UDim2.new(0, 44, -1, 27)
-mini.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
-mini.Text = "-"
-mini.TextSize = 40
-mini.Parent = FlyPanel
+-- Main fly toggle
+local flyTogBtn = Instance.new("TextButton")
+flyTogBtn.Size             = UDim2.new(1, 0, 0, 28)
+flyTogBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 62)
+flyTogBtn.Text             = "✈️  FLY: OFF"
+flyTogBtn.TextColor3       = T.Muted
+flyTogBtn.TextSize         = 12
+flyTogBtn.Font             = Enum.Font.GothamBold
+flyTogBtn.AutoButtonColor  = false
+Round(flyTogBtn, 8)
+flyTogBtn.Parent = flyCard
 
-local mini2 = Instance.new("TextButton")
-mini2.Name = "minimize2"
-mini2.Size = UDim2.new(0, 45, 0, 28)
-mini2.Position = UDim2.new(0, 44, -1, 57)
-mini2.BackgroundColor3 = Color3.fromRGB(192, 150, 230)
-mini2.Text = "+"
-mini2.TextSize = 40
-mini2.Visible = false
-mini2.Parent = FlyPanel
-
--- NoClip Button (Manual add to panel)
-local NoclipBtn = Instance.new("TextButton")
-NoclipBtn.Size = UDim2.new(0, 190, 0, 25)
-NoclipBtn.Position = UDim2.new(0, 0, 1, 5)
-NoclipBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-NoclipBtn.Text = "NOCLIP: OFF"
-NoclipBtn.TextColor3 = Color3.new(1,1,1)
-NoclipBtn.Parent = FlyPanel
-FlyPanel.Size = UDim2.new(0, 190, 0, 115) -- Adjust size for noclip btn
-
--- FLY LOGIC (IMPLEMENTED FROM SAMPLE)
-local flying = false
-local tpwalking = false
-local speeds = 1
-
-local function updateFlySpeed()
-    speed.Text = speeds
-    -- Logic to update internal speed if needed, handled in loop
-end
-
-onof.MouseButton1Click:Connect(function()
-    if flying then
-        flying = false
-        tpwalking = false
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Humanoid") then
-            char.Humanoid.PlatformStand = false
-            for i, v in pairs(char:GetDescendants()) do
-                if v:IsA("BasePart") then v.CanCollide = true end
+-- Noclip
+Toggle(noclipCard, "No Clip (pass through walls)", function(on)
+    Config.Noclip = on
+    if on then
+        States.NoclipConnection = RunService.Stepped:Connect(function()
+            if LocalPlayer.Character then
+                for _, p in pairs(LocalPlayer.Character:GetDescendants()) do
+                    if p:IsA("BasePart") then p.CanCollide = false end
+                end
+            end
+        end)
+    else
+        if States.NoclipConnection then States.NoclipConnection:Disconnect(); States.NoclipConnection = nil end
+        if LocalPlayer.Character then
+            for _, p in pairs(LocalPlayer.Character:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide = true end
             end
         end
-        onof.Text = "FLY"
-        onof.BackgroundColor3 = Color3.fromRGB(255, 249, 74)
-    else
-        flying = true
-        local char = LocalPlayer.Character
-        local hum = char and char:FindFirstChildWhichIsA("Humanoid")
+    end
+end)
+
+-- ---- FLY LOGIC (V3 style) ----
+local function RestoreHumanoid(hum)
+    for _, state in pairs({
+        Enum.HumanoidStateType.Climbing, Enum.HumanoidStateType.FallingDown,
+        Enum.HumanoidStateType.Flying,   Enum.HumanoidStateType.Freefall,
+        Enum.HumanoidStateType.GettingUp,Enum.HumanoidStateType.Jumping,
+        Enum.HumanoidStateType.Landed,   Enum.HumanoidStateType.Physics,
+        Enum.HumanoidStateType.PlatformStanding, Enum.HumanoidStateType.Ragdoll,
+        Enum.HumanoidStateType.Running,  Enum.HumanoidStateType.RunningNoPhysics,
+        Enum.HumanoidStateType.Seated,   Enum.HumanoidStateType.StrafingNoPhysics,
+        Enum.HumanoidStateType.Swimming,
+    }) do pcall(function() hum:SetStateEnabled(state, true) end) end
+    pcall(function() hum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics) end)
+end
+
+local function DisableHumanoid(hum)
+    for _, state in pairs({
+        Enum.HumanoidStateType.Climbing, Enum.HumanoidStateType.FallingDown,
+        Enum.HumanoidStateType.Flying,   Enum.HumanoidStateType.Freefall,
+        Enum.HumanoidStateType.GettingUp,Enum.HumanoidStateType.Jumping,
+        Enum.HumanoidStateType.Landed,   Enum.HumanoidStateType.Physics,
+        Enum.HumanoidStateType.PlatformStanding, Enum.HumanoidStateType.Ragdoll,
+        Enum.HumanoidStateType.Running,  Enum.HumanoidStateType.RunningNoPhysics,
+        Enum.HumanoidStateType.Seated,   Enum.HumanoidStateType.StrafingNoPhysics,
+        Enum.HumanoidStateType.Swimming,
+    }) do pcall(function() hum:SetStateEnabled(state, false) end) end
+    pcall(function() hum:ChangeState(Enum.HumanoidStateType.Swimming) end)
+end
+
+local function StopFly()
+    States.FlyActive = false
+    States.tpwalking = false
+    States.upHeld    = false
+    States.downHeld  = false
+    Tween(flyTogBtn, {BackgroundColor3 = Color3.fromRGB(45,45,62), TextColor3 = T.Muted}, 0.2)
+    flyTogBtn.Text = "✈️  FLY: OFF"
+
+    if States.FlyRenderConn then States.FlyRenderConn:Disconnect(); States.FlyRenderConn = nil end
+    if States.FlyBodyGyro     and States.FlyBodyGyro.Parent     then States.FlyBodyGyro:Destroy()     end
+    if States.FlyBodyVelocity and States.FlyBodyVelocity.Parent then States.FlyBodyVelocity:Destroy() end
+
+    local chr = LocalPlayer.Character
+    if chr then
+        local hum = chr:FindFirstChildWhichIsA("Humanoid")
         if hum then
-            hum.PlatformStand = true
-            char.Animate.Disabled = true
-            
-            -- Spawn TP Walk loops based on speeds
-            for i = 1, speeds do
+            RestoreHumanoid(hum)
+            hum.PlatformStand = false
+        end
+        if chr:FindFirstChild("Animate") then chr.Animate.Disabled = false end
+    end
+end
+
+local function StartFly()
+    local chr = LocalPlayer.Character
+    if not chr then return end
+    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+    if not hum then return end
+
+    States.FlyActive = true
+    Tween(flyTogBtn, {BackgroundColor3 = T.Success, TextColor3 = Color3.new(1,1,1)}, 0.2)
+    flyTogBtn.Text = "✈️  FLY: ON"
+
+    -- Disable animations
+    pcall(function() chr.Animate.Disabled = true end)
+    pcall(function()
+        for _, t in pairs(hum:GetPlayingAnimationTracks()) do t:AdjustSpeed(0) end
+    end)
+
+    DisableHumanoid(hum)
+    hum.PlatformStand = true
+
+    -- Horizontal movement via TranslateBy (V3 speed-multiplier style)
+    States.tpwalking = true
+    for i = 1, flySpeedCount do
+        spawn(function()
+            local hb = RunService.Heartbeat
+            local c  = LocalPlayer.Character
+            local h  = c and c:FindFirstChildWhichIsA("Humanoid")
+            while States.FlyActive and States.tpwalking and hb:Wait() and c and h and h.Parent do
+                if h.MoveDirection.Magnitude > 0 then
+                    c:TranslateBy(h.MoveDirection)
+                end
+            end
+        end)
+    end
+
+    -- BodyGyro + BodyVelocity for physics/tilt
+    local rigType = hum.RigType
+    local torso = (rigType == Enum.HumanoidRigType.R6) and chr:FindFirstChild("Torso") or chr:FindFirstChild("UpperTorso")
+    if not torso then StopFly(); return end
+
+    local bg = Instance.new("BodyGyro", torso)
+    bg.P         = 9e4
+    bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bg.cframe    = torso.CFrame
+    States.FlyBodyGyro = bg
+
+    local bv = Instance.new("BodyVelocity", torso)
+    bv.velocity  = Vector3.new(0, 0.1, 0)
+    bv.maxForce  = Vector3.new(9e9, 9e9, 9e9)
+    States.FlyBodyVelocity = bv
+
+    local ctrl     = {f=0,b=0,l=0,r=0}
+    local lastctrl = {f=0,b=0,l=0,r=0}
+    local spd      = 0
+    local maxspeed = 50
+
+    local renderEvt = (rigType == Enum.HumanoidRigType.R6) and RunService.RenderStepped or RunService.Heartbeat
+
+    States.FlyRenderConn = renderEvt:Connect(function()
+        if not States.FlyActive then return end
+
+        -- Accelerate / decelerate
+        if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
+            spd = math.min(spd + 0.5 + spd/maxspeed, maxspeed)
+        elseif spd ~= 0 then
+            spd = math.max(spd - 1, 0)
+        end
+
+        local cam = workspace.CurrentCamera.CoordinateFrame
+
+        if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
+            bv.velocity = ((cam.lookVector * (ctrl.f+ctrl.b)) + ((cam * CFrame.new(ctrl.l+ctrl.r, (ctrl.f+ctrl.b)*0.2, 0)).p - cam.p)) * spd
+            lastctrl = {f=ctrl.f, b=ctrl.b, l=ctrl.l, r=ctrl.r}
+        elseif (ctrl.l+ctrl.r) == 0 and (ctrl.f+ctrl.b) == 0 and spd ~= 0 then
+            bv.velocity = ((cam.lookVector * (lastctrl.f+lastctrl.b)) + ((cam * CFrame.new(lastctrl.l+lastctrl.r, (lastctrl.f+lastctrl.b)*0.2, 0)).p - cam.p)) * spd
+        else
+            bv.velocity = Vector3.new(0, 0, 0)
+        end
+
+        bg.cframe = cam * CFrame.Angles(-math.rad((ctrl.f+ctrl.b)*50*spd/maxspeed), 0, 0)
+    end)
+end
+
+flyTogBtn.MouseButton1Click:Connect(function()
+    if States.FlyActive then StopFly() else StartFly() end
+end)
+
+-- Speed +/-
+flyPlusB.MouseButton1Click:Connect(function()
+    flySpeedCount = math.min(flySpeedCount + 1, 20)
+    flySpdDisp.Text = tostring(flySpeedCount)
+    if States.FlyActive then StopFly(); wait(0.1); StartFly() end
+end)
+flyMinB.MouseButton1Click:Connect(function()
+    if flySpeedCount <= 1 then
+        flySpdDisp.Text = "MIN!"; wait(0.8); flySpdDisp.Text = "1"; return
+    end
+    flySpeedCount = flySpeedCount - 1
+    flySpdDisp.Text = tostring(flySpeedCount)
+    if States.FlyActive then StopFly(); wait(0.1); StartFly() end
+end)
+
+-- Up / Down vertical movement via CFrame (hold-to-move, V3 style)
+flyUpB.MouseButton1Down:Connect(function()
+    States.upHeld = true
+    spawn(function()
+        while States.upHeld do
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 1, 0)
+            end
+            wait(0.04)
+        end
+    end)
+end)
+flyUpB.MouseButton1Up:Connect(function() States.upHeld = false end)
+flyUpB.MouseLeave:Connect(function()   States.upHeld = false end)
+
+flyDnB.MouseButton1Down:Connect(function()
+    States.downHeld = true
+    spawn(function()
+        while States.downHeld do
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, -1, 0)
+            end
+            wait(0.04)
+        end
+    end)
+end)
+flyDnB.MouseButton1Up:Connect(function() States.downHeld = false end)
+flyDnB.MouseLeave:Connect(function()   States.downHeld = false end)
+
+-- ====================================================================
+-- ========================== ESP PAGE ================================
+-- ====================================================================
+local espCard    = Section(ESPPage, "👁️ ESP PLAYERS")
+local espV2Card  = Section(ESPPage, "👑 ESP V2  –  ADMIN ONLY")
+local blkEspCard = Section(ESPPage, "🧱 BLOCK / ITEM ESP")
+
+Toggle(espCard, "Enable Player ESP (name + distance)", function(on)
+    Config.ESPPlayers = on
+    if on then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                local esp = Instance.new("BillboardGui")
+                esp.Name         = p.Name.."_ESP"
+                esp.AlwaysOnTop  = true
+                esp.Size         = UDim2.new(0, 120, 0, 42)
+                esp.StudsOffset  = Vector3.new(0, 2.5, 0)
+
+                local bg = Instance.new("Frame")
+                bg.Size                    = UDim2.new(1,0,1,0)
+                bg.BackgroundColor3        = T.Primary
+                bg.BackgroundTransparency  = 0.55
+                Round(bg, 6)
+                bg.Parent = esp
+
+                local nm = Instance.new("TextLabel")
+                nm.Size               = UDim2.new(1,0,0.55,0)
+                nm.BackgroundTransparency = 1
+                nm.Text               = p.Name
+                nm.TextColor3         = Color3.new(1,1,1)
+                nm.TextSize           = 12
+                nm.Font               = Enum.Font.GothamBold
+                nm.Parent             = bg
+
+                local dt = Instance.new("TextLabel")
+                dt.Size               = UDim2.new(1,0,0.45,0)
+                dt.Position           = UDim2.new(0,0,0.55,0)
+                dt.BackgroundTransparency = 1
+                dt.Text               = "0m"
+                dt.TextColor3         = Color3.fromRGB(210,210,210)
+                dt.TextSize           = 10
+                dt.Font               = Enum.Font.Gotham
+                dt.Parent             = bg
+
+                esp.Parent = States.ESPPlayerFolder
+
                 spawn(function()
-                    tpwalking = true
-                    local hb = game:GetService("RunService").Heartbeat
-                    while tpwalking and hb:Wait() and char and hum and hum.Parent do
-                        if hum.MoveDirection.Magnitude > 0 then
-                            char:TranslateBy(hum.MoveDirection)
+                    while esp.Parent and Config.ESPPlayers do
+                        if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                            esp.Adornee = p.Character.HumanoidRootPart
+                            dt.Text     = math.floor((LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude).."m"
+                            esp.Enabled = true
+                        else
+                            esp.Enabled = false
                         end
+                        wait(0.3)
                     end
+                    if esp.Parent then esp:Destroy() end
                 end)
             end
         end
-        onof.Text = "ON"
-        onof.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-        
-        -- Start Flight Loop (R6 & R15 logic combined from sample)
+    else
+        States.ESPPlayerFolder:ClearAllChildren()
+    end
+end)
+
+-- Admin ESP V2 (hidden until admin login)
+local espV2LockLbl = Label(espV2Card, "🔒 Login as Admin to enable ESP V2", 9, T.Warning)
+espV2LockLbl.Size = UDim2.new(1, 0, 0, 18)
+
+local espV2Row = Instance.new("Frame")
+espV2Row.Size             = UDim2.new(1, 0, 0, 26)
+espV2Row.BackgroundTransparency = 1
+espV2Row.Visible          = false    -- revealed after admin login
+espV2Row.Parent           = espV2Card
+
+local espV2Lbl = Label(espV2Row, "👑 ESP V2  (HP + Dist + Team + RGB)", 10, T.Admin, Enum.Font.GothamBold)
+espV2Lbl.Size = UDim2.new(0.72, 0, 1, 0)
+
+local espV2Btn = Instance.new("TextButton")
+espV2Btn.Size             = UDim2.new(0, 42, 0, 18)
+espV2Btn.Position         = UDim2.new(1, -42, 0.5, -9)
+espV2Btn.BackgroundColor3 = Color3.fromRGB(45, 45, 62)
+espV2Btn.Text             = "OFF"
+espV2Btn.TextColor3       = T.Muted
+espV2Btn.TextSize         = 9
+espV2Btn.Font             = Enum.Font.GothamBold
+espV2Btn.AutoButtonColor  = false
+Round(espV2Btn, 9)
+espV2Btn.Parent = espV2Row
+
+local espV2On = false
+
+local function CreateAdminESP(p)
+    if p == LocalPlayer then return end
+    if States.AdminESPFolder:FindFirstChild(p.Name.."_AESP") then return end
+
+    local esp = Instance.new("BillboardGui")
+    esp.Name        = p.Name.."_AESP"
+    esp.AlwaysOnTop = true
+    esp.Size        = UDim2.new(0, 160, 0, 68)
+    esp.StudsOffset = Vector3.new(0, 3.5, 0)
+    esp.Parent      = States.AdminESPFolder
+
+    local bg = Instance.new("Frame")
+    bg.Size                   = UDim2.new(1,0,1,0)
+    bg.BackgroundColor3       = T.Admin
+    bg.BackgroundTransparency = 0.25
+    Round(bg, 10)
+    bg.Parent = esp
+
+    local nm = Instance.new("TextLabel")
+    nm.Size = UDim2.new(1,0,0.22,0); nm.BackgroundTransparency = 1
+    nm.Text = p.Name; nm.TextColor3 = Color3.new(1,1,1)
+    nm.TextSize = 13; nm.Font = Enum.Font.GothamBlack; nm.Parent = bg
+
+    local hpBg = Instance.new("Frame")
+    hpBg.Size = UDim2.new(0.9,0,0,5); hpBg.Position = UDim2.new(0.05,0,0.28,0)
+    hpBg.BackgroundColor3 = Color3.fromRGB(40,40,55); hpBg.BorderSizePixel = 0
+    Round(hpBg, 3); hpBg.Parent = bg
+
+    local hpFill = Instance.new("Frame")
+    hpFill.Size = UDim2.new(1,0,1,0); hpFill.BackgroundColor3 = T.Success
+    hpFill.BorderSizePixel = 0; Round(hpFill, 3); hpFill.Parent = hpBg
+
+    local hpT = Instance.new("TextLabel")
+    hpT.Size = UDim2.new(1,0,0.2,0); hpT.Position = UDim2.new(0,0,0.42,0)
+    hpT.BackgroundTransparency = 1; hpT.TextSize = 10; hpT.Font = Enum.Font.Gotham
+    hpT.TextColor3 = T.Text; hpT.Parent = bg
+
+    local dT = Instance.new("TextLabel")
+    dT.Size = UDim2.new(1,0,0.18,0); dT.Position = UDim2.new(0,0,0.64,0)
+    dT.BackgroundTransparency = 1; dT.TextSize = 9; dT.Font = Enum.Font.Gotham
+    dT.TextColor3 = T.Muted; dT.Parent = bg
+
+    local tmT = Instance.new("TextLabel")
+    tmT.Size = UDim2.new(1,0,0.16,0); tmT.Position = UDim2.new(0,0,0.83,0)
+    tmT.BackgroundTransparency = 1; tmT.TextSize = 9; tmT.Font = Enum.Font.Gotham
+    tmT.TextColor3 = T.Warning; tmT.Parent = bg
+
+    -- RGB name cycle
+    spawn(function()
+        local h = 0
+        while esp.Parent and espV2On do
+            h = (h + 0.03) % 1
+            nm.TextColor3 = Color3.fromHSV(h, 1, 1)
+            wait(0.05)
+        end
+    end)
+
+    spawn(function()
+        while esp.Parent and espV2On do
+            if p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local hm = p.Character.Humanoid
+                local d  = (LocalPlayer.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+                esp.Adornee    = p.Character.HumanoidRootPart
+                hpFill.Size    = UDim2.new(math.clamp(hm.Health/hm.MaxHealth, 0, 1), 0, 1, 0)
+                hpT.Text       = string.format("HP: %d/%d", math.floor(hm.Health), math.floor(hm.MaxHealth))
+                dT.Text        = math.floor(d).."m away"
+                tmT.Text       = "Team: "..(p.Team and p.Team.Name or "None")
+                esp.Enabled    = true
+            else
+                esp.Enabled    = false
+            end
+            wait(0.2)
+        end
+        if esp.Parent then esp:Destroy() end
+    end)
+end
+
+espV2Btn.MouseButton1Click:Connect(function()
+    if not Config.IsAdmin then
+        espV2LockLbl.Text      = "⚠️  Enter admin password first!"
+        espV2LockLbl.TextColor3 = T.Error
+        wait(2)
+        espV2LockLbl.Text      = "🔒 Login as Admin to enable ESP V2"
+        espV2LockLbl.TextColor3 = T.Warning
+        return
+    end
+    espV2On = not espV2On
+    espV2Btn.Text = espV2On and "ON" or "OFF"
+    Tween(espV2Btn, {BackgroundColor3 = espV2On and T.Admin or Color3.fromRGB(45,45,62)}, 0.18)
+    Tween(espV2Btn, {TextColor3 = espV2On and Color3.new(0,0,0) or T.Muted}, 0.18)
+    Config.ESPAdmin = espV2On
+    if espV2On then
+        for _, p in pairs(Players:GetPlayers()) do CreateAdminESP(p) end
+        Players.PlayerAdded:Connect(function(p) if espV2On then wait(1); CreateAdminESP(p) end end)
+    else
+        States.AdminESPFolder:ClearAllChildren()
+    end
+end)
+
+-- Block ESP
+local BlockKW = {"block","mission","quest","item","coin","money","cash","gem","collect","chest","reward","target","objective","pickup","token","star"}
+local function IsBlockObj(obj)
+    local n = obj.Name:lower()
+    for _, kw in ipairs(BlockKW) do if n:find(kw) then return true end end
+    return false
+end
+local function MakeBlockESP(obj)
+    local key = obj.Name.."_"..tostring(obj:GetDebugId())
+    if States.ESPBlockFolder:FindFirstChild(key) then return end
+    local esp = Instance.new("BillboardGui")
+    esp.Name = key; esp.AlwaysOnTop = true; esp.Size = UDim2.new(0,115,0,38); esp.StudsOffset = Vector3.new(0,1.5,0)
+    local bg = Instance.new("Frame"); bg.Size = UDim2.new(1,0,1,0); bg.BackgroundColor3 = T.Warning; bg.BackgroundTransparency = 0.5; Round(bg,6); bg.Parent = esp
+    local t1 = Instance.new("TextLabel"); t1.Size = UDim2.new(1,0,0.55,0); t1.BackgroundTransparency = 1; t1.Text = obj.Name; t1.TextColor3 = Color3.new(1,1,1); t1.TextSize = 10; t1.Font = Enum.Font.GothamBold; t1.Parent = bg
+    local t2 = Instance.new("TextLabel"); t2.Size = UDim2.new(1,0,0.45,0); t2.Position = UDim2.new(0,0,0.55,0); t2.BackgroundTransparency = 1; t2.Text = "0m"; t2.TextColor3 = T.Muted; t2.TextSize = 9; t2.Font = Enum.Font.Gotham; t2.Parent = bg
+    esp.Parent = States.ESPBlockFolder
+    spawn(function()
+        while esp.Parent and Config.ESPBlocks do
+            if obj.Parent and obj:IsA("BasePart") then
+                esp.Adornee = obj
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    t2.Text = math.floor((LocalPlayer.Character.HumanoidRootPart.Position - obj.Position).Magnitude).."m"
+                end
+                esp.Enabled = true
+            else
+                esp:Destroy(); break
+            end
+            wait(0.5)
+        end
+        if esp.Parent then esp:Destroy() end
+    end)
+end
+
+Toggle(blkEspCard, "Scan & highlight blocks / items", function(on)
+    Config.ESPBlocks = on
+    if on then
+        for _, o in pairs(workspace:GetDescendants()) do if IsBlockObj(o) then MakeBlockESP(o) end end
+        workspace.DescendantAdded:Connect(function(o) if Config.ESPBlocks and IsBlockObj(o) then wait(0.3); MakeBlockESP(o) end end)
+    else
+        States.ESPBlockFolder:ClearAllChildren()
+    end
+end)
+
+-- ====================================================================
+-- ======================== TELEPORT PAGE ============================
+-- ====================================================================
+local tpCard = Section(TPPage, "🎯 TELEPORT")
+local tpList = PlayerList(tpCard, 80)
+
+Btn(tpCard, "Teleport to Selected Player", "primary", function()
+    local sel = tpList:GetSelected()
+    if sel and sel.Character and sel.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = sel.Character.HumanoidRootPart.CFrame
+    end
+end)
+
+Toggle(tpCard, "Follow Selected Player", function(on)
+    Config.AutoFollow = on
+    States.FollowingPlayer = on and tpList:GetSelected() or nil
+    if on then
         spawn(function()
-            local ctrl = {f = 0, b = 0, l = 0, r = 0}
-            local lastctrl = {f = 0, b = 0, l = 0, r = 0}
-            local maxspeed = 50
-            local flyspeed = 0
-            
-            local plr = LocalPlayer
-            local torso = plr.Character and (plr.Character:FindFirstChild("Torso") or plr.Character:FindFirstChild("UpperTorso"))
-            
-            if not torso then return end
-            
-            local bg = Instance.new("BodyGyro", torso)
-            bg.P = 9e4
-            bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
-            bg.cframe = torso.CFrame
-            local bv = Instance.new("BodyVelocity", torso)
-            bv.velocity = Vector3.new(0,0.1,0)
-            bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
-            
-            while flying and plr.Character and plr.Character:FindFirstChild("Humanoid") and plr.Character.Humanoid.Health > 0 do
-                wait()
-                
-                if ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0 then
-                    flyspeed = flyspeed + 0.5 + (flyspeed/maxspeed)
-                    if flyspeed > maxspeed then flyspeed = maxspeed end
-                elseif not (ctrl.l + ctrl.r ~= 0 or ctrl.f + ctrl.b ~= 0) and flyspeed ~= 0 then
-                    flyspeed = flyspeed - 1
-                    if flyspeed < 0 then flyspeed = 0 end
+            while Config.AutoFollow and States.FollowingPlayer do
+                if States.FollowingPlayer.Character and States.FollowingPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = States.FollowingPlayer.Character.HumanoidRootPart.CFrame
                 end
-                
-                if (ctrl.l + ctrl.r) ~= 0 or (ctrl.f + ctrl.b) ~= 0 then
-                    bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (ctrl.f+ctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(ctrl.l+ctrl.r,(ctrl.f+ctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*flyspeed
-                    lastctrl = {f = ctrl.f, b = ctrl.b, l = ctrl.l, r = ctrl.r}
-                elseif (ctrl.l + ctrl.r) == 0 and (ctrl.f + ctrl.b) == 0 and flyspeed ~= 0 then
-                    bv.velocity = ((game.Workspace.CurrentCamera.CoordinateFrame.lookVector * (lastctrl.f+lastctrl.b)) + ((game.Workspace.CurrentCamera.CoordinateFrame * CFrame.new(lastctrl.l+lastctrl.r,(lastctrl.f+lastctrl.b)*.2,0).p) - game.Workspace.CurrentCamera.CoordinateFrame.p))*flyspeed
-                else
-                    bv.velocity = Vector3.new(0,0,0)
-                end
-                
-                bg.cframe = game.Workspace.CurrentCamera.CoordinateFrame * CFrame.Angles(-math.rad((ctrl.f+ctrl.b)*50*flyspeed/maxspeed),0,0)
-            end
-            
-            ctrl = {f = 0, b = 0, l = 0, r = 0}
-            lastctrl = {f = 0, b = 0, l = 0, r = 0}
-            flyspeed = 0
-            bg:Destroy()
-            bv:Destroy()
-            if plr.Character and plr.Character:FindFirstChild("Humanoid") then
-                plr.Character.Humanoid.PlatformStand = false
-                plr.Character.Animate.Disabled = false
+                wait(0.04)
             end
         end)
     end
 end)
 
--- Input Handling for Fly (WASD)
-local mouse = LocalPlayer:GetMouse()
-RunService.RenderStepped:Connect(function()
-    if flying then
-        local c = {f = 0, b = 0, l = 0, r = 0}
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then c.f = 1 end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then c.b = -1 end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then c.l = -1 end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then c.r = 1 end
-        -- Store in a global or upvalue that the loop can read. 
-        -- Note: The sample script's loop used local 'ctrl'. We need to bridge them.
-        -- For simplicity in this merge, we assume the loop inside onof handles keys via MoveDirection which works for TP walk, 
-        -- but the BodyVelocity loop needs explicit inputs. 
-        -- FIX: We'll update the 'ctrl' table in the loop scope if possible, or rely on MoveDirection for TPWalk part.
-    end
+-- ====================================================================
+-- ========================== GOD PAGE ================================
+-- ====================================================================
+local godCard = Section(GodPage, "🛡️ GOD MODE")
+
+local godModeTypeBtn = Instance.new("TextButton")
+godModeTypeBtn.Size             = UDim2.new(1, 0, 0, 24)
+godModeTypeBtn.BackgroundColor3 = T.SurfaceHi
+godModeTypeBtn.Text             = "Mode: Gen1  (auto-heal)"
+godModeTypeBtn.TextColor3       = T.Text
+godModeTypeBtn.TextSize         = 10
+godModeTypeBtn.Font             = Enum.Font.GothamBold
+godModeTypeBtn.AutoButtonColor  = false
+Round(godModeTypeBtn, 6)
+godModeTypeBtn.Parent = godCard
+godModeTypeBtn.MouseButton1Click:Connect(function()
+    Config.GodModeType = Config.GodModeType == "Gen1" and "Gen2" or "Gen1"
+    godModeTypeBtn.Text = Config.GodModeType == "Gen1" and "Mode: Gen1  (auto-heal)" or "Mode: Gen2  (immortal ∞)"
 end)
 
--- Fly Controls (Up/Down/Speed)
-local tis, dis
-up.MouseButton1Down:Connect(function()
-    tis = up.MouseEnter:Connect(function()
-        while tis do
-            wait()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,1,0)
-            end
-        end
-    end)
-end)
-up.MouseLeave:Connect(function() if tis then tis:Disconnect() tis = nil end end)
-
-down.MouseButton1Down:Connect(function()
-    dis = down.MouseEnter:Connect(function()
-        while dis do
-            wait()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = LocalPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0,-1,0)
-            end
-        end
-    end)
-end)
-down.MouseLeave:Connect(function() if dis then dis:Disconnect() dis = nil end end)
-
-plus.MouseButton1Click:Connect(function()
-    speeds = speeds + 1
-    updateFlySpeed()
-end)
-mine.MouseButton1Click:Connect(function()
-    if speeds > 1 then
-        speeds = speeds - 1
-        updateFlySpeed()
-    end
-end)
-
-closebutton.MouseButton1Click:Connect(function()
-    FlyPanel.Visible = false
-end)
-mini.MouseButton1Click:Connect(function()
-    up.Visible = false; down.Visible = false; onof.Visible = false; plus.Visible = false; speed.Visible = false; mine.Visible = false; mini.Visible = false; NoclipBtn.Visible = false; mini2.Visible = true
-    FlyPanel.Size = UDim2.new(0, 190, 0, 0)
-    closebutton.Position = UDim2.new(0, 0, 0, 0)
-end)
-mini2.MouseButton1Click:Connect(function()
-    up.Visible = true; down.Visible = true; onof.Visible = true; plus.Visible = true; speed.Visible = true; mine.Visible = true; mini.Visible = true; NoclipBtn.Visible = true; mini2.Visible = false
-    FlyPanel.Size = UDim2.new(0, 190, 0, 115)
-    closebutton.Position = UDim2.new(0, 0, -1, 27)
-end)
-
--- NoClip Logic (Separate Toggle as requested inside panel)
-local isNoclip = false
-local NoclipConn
-NoclipBtn.MouseButton1Click:Connect(function()
-    isNoclip = not isNoclip
-    NoclipBtn.Text = isNoclip and "NOCLIP: ON" or "NOCLIP: OFF"
-    NoclipBtn.BackgroundColor3 = isNoclip and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(100, 100, 100)
-    
-    if isNoclip then
-        NoclipConn = RunService.Stepped:Connect(function()
-            if LocalPlayer.Character then
-                for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then part.CanCollide = false end
-                end
-            end
+Toggle(godCard, "God Mode", function(on)
+    Config.GodMode = on
+    if States.GodConnection then States.GodConnection:Disconnect(); States.GodConnection = nil end
+    if on then
+        States.GodConnection = RunService.Heartbeat:Connect(function()
+            if not LocalPlayer.Character then return end
+            local h = LocalPlayer.Character:FindFirstChild("Humanoid"); if not h then return end
+            if Config.GodModeType == "Gen1" then h.Health = h.MaxHealth
+            else h.MaxHealth = math.huge; h.Health = math.huge end
         end)
     else
-        if NoclipConn then NoclipConn:Disconnect() NoclipConn = nil end
-        if LocalPlayer.Character then
-            for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
-                if part:IsA("BasePart") then part.CanCollide = true end
-            end
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            pcall(function() LocalPlayer.Character.Humanoid.MaxHealth = 100 end)
         end
     end
 end)
 
--- 2. MOVEMENT TAB (SPEED, JUMP, GRAVITY)
-local TabMove = CreateTab("🏃 Move", 2)
-local function CreateSlider(parent, text, min, max, default, callback)
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(1, 0, 0, 50)
-    container.BackgroundColor3 = Colors.Secondary
-    container.Parent = parent
-    Roundify(container, 6)
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -10, 0, 20)
-    label.Position = UDim2.new(0, 5, 0, 5)
-    label.BackgroundTransparency = 1
-    label.Text = text .. ": " .. default
-    label.TextColor3 = Colors.Text
-    label.TextSize = 12
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = container
-
-    local slider = Instance.new("TextBox")
-    slider.Size = UDim2.new(0, 40, 0, 20)
-    slider.Position = UDim2.new(1, -45, 0, 5)
-    slider.BackgroundColor3 = Colors.Main
-    slider.Text = tostring(default)
-    slider.TextColor3 = Colors.Primary
-    slider.Parent = container
-    
-    local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(1, -20, 0, 4)
-    bar.Position = UDim2.new(0, 10, 0, 30)
-    bar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    bar.Parent = container
-    Roundify(bar, 2)
-    
-    local fill = Instance.new("Frame")
-    fill.Size = UDim2.new((default-min)/(max-min), 0, 1, 0)
-    fill.BackgroundColor3 = Colors.Primary
-    fill.Parent = bar
-    Roundify(fill, 2)
-
-    -- Simple interaction
-    bar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            local moveConn
-            moveConn = game:GetService("UserInputService").InputChanged:Connect(function(i)
-                if i.UserInputType == Enum.UserInputType.MouseMovement then
-                    local pos = math.clamp((i.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-                    local val = math.floor(min + (max - min) * pos)
-                    slider.Text = tostring(val)
-                    label.Text = text .. ": " .. val
-                    fill.Size = UDim2.new(pos, 0, 1, 0)
-                    callback(val)
-                end
-            end)
-            input.Changed:Connect(function() if input.UserInputType == Enum.UserInputType.InputEnded then moveConn:Disconnect() end end)
-            -- Immediate click update
-            local pos = math.clamp((input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-            local val = math.floor(min + (max - min) * pos)
-            slider.Text = tostring(val)
-            label.Text = text .. ": " .. val
-            fill.Size = UDim2.new(pos, 0, 1, 0)
-            callback(val)
-        end
-    end)
-end
-
-CreateSlider(TabMove, "Walk Speed", 16, 200, 16, function(val)
-    Config.WalkSpeed = val
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = val
-    end
-end)
-
-CreateSlider(TabMove, "Jump Power", 50, 300, 50, function(val)
-    Config.JumpPower = val
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.JumpPower = val
-    end
-end)
-
-CreateSlider(TabMove, "Gravity (Moon)", 0, 196, 196, function(val)
-    Config.Gravity = val
-    Workspace.Gravity = val
-end)
-
-local InfJumpToggle = Instance.new("TextButton")
-InfJumpToggle.Size = UDim2.new(1, 0, 0, 35)
-InfJumpToggle.BackgroundColor3 = Colors.Secondary
-InfJumpToggle.Text = "Infinite Jump: OFF"
-InfJumpToggle.TextColor3 = Colors.Text
-InfJumpToggle.Parent = TabMove
-Roundify(InfJumpToggle, 6)
-InfJumpToggle.MouseButton1Click:Connect(function()
-    Config.InfiniteJump = not Config.InfiniteJump
-    InfJumpToggle.Text = "Infinite Jump: " .. (Config.InfiniteJump and "ON" or "OFF")
-    InfJumpToggle.BackgroundColor3 = Config.InfiniteJump and Colors.Primary or Colors.Secondary
-end)
-UserInputService.JumpRequest:Connect(function()
-    if Config.InfiniteJump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-    end
-end)
-
--- 3. ESP TAB
-local TabESP = CreateTab("👁️ ESP", 3)
-
-local function MakeToggle(parent, text, callback)
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, 0, 0, 35)
-    btn.BackgroundColor3 = Colors.Secondary
-    btn.Text = text .. ": OFF"
-    btn.TextColor3 = Colors.Text
-    btn.TextXAlignment = Enum.TextXAlignment.Left
-    btn.Parent = parent
-    Roundify(btn, 6)
-    local pad = Instance.new("UIPadding")
-    pad.PaddingLeft = UDim.new(0, 10)
-    pad.Parent = btn
-    
-    btn.MouseButton1Click:Connect(function()
-        local state = callback()
-        btn.Text = text .. ": " .. (state and "ON" or "OFF")
-        btn.BackgroundColor3 = state and Colors.Primary or Colors.Secondary
-    end)
-end
-
-MakeToggle(TabESP, "ESP Normal", function()
-    Config.ESPNormal = not Config.ESPNormal
-    if Config.ESPNormal then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer then CreateESP(p, false) end
-        end
-    else
-        ESPFolder:ClearAllChildren()
-    end
-    return Config.ESPNormal
-end)
-
--- ADMIN ESP (Hidden initially)
-local AdminESPToggle = Instance.new("TextButton")
-AdminESPToggle.Size = UDim2.new(1, 0, 0, 35)
-AdminESPToggle.Position = UDim2.new(0, 0, 0, 40)
-AdminESPToggle.BackgroundColor3 = Colors.Secondary
-AdminESPToggle.Text = "ESP V2 (Admin): OFF"
-AdminESPToggle.TextColor3 = Colors.Admin
-AdminESPToggle.Visible = false -- Hidden by default
-AdminESPToggle.Parent = TabESP
-Roundify(AdminESPToggle, 6)
-
-AdminESPToggle.MouseButton1Click:Connect(function()
-    Config.ESPAdmin = not Config.ESPAdmin
-    AdminESPToggle.Text = "ESP V2 (Admin): " .. (Config.ESPAdmin and "ON" or "OFF")
-    AdminESPToggle.BackgroundColor3 = Config.ESPAdmin and Colors.Admin or Colors.Secondary
-    
-    if Config.ESPAdmin then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer then CreateESP(p, true) end
-        end
-    else
-        ESPFolder:ClearAllChildren()
-    end
-end)
-
-function CreateESP(player, isAdminMode)
-    local bg = Instance.new("BillboardGui")
-    bg.Name = player.Name .. "_ESP"
-    bg.AlwaysOnTop = true
-    bg.Size = UDim2.new(0, 150, 0, 50)
-    bg.StudsOffset = Vector3.new(0, 2, 0)
-    bg.Parent = ESPFolder
-    
-    local box = Instance.new("Frame")
-    box.Size = UDim2.new(1, 0, 1, 0)
-    box.BackgroundColor3 = isAdminMode and Colors.Admin or Colors.Primary
-    box.BackgroundTransparency = 0.3
-    box.Parent = bg
-    
-    local name = Instance.new("TextLabel")
-    name.Size = UDim2.new(1, 0, 0.5, 0)
-    name.BackgroundTransparency = 1
-    name.Text = player.Name
-    name.TextColor3 = Color3.new(1,1,1)
-    name.TextStrokeTransparency = 0
-    name.Parent = box
-    
-    local info = Instance.new("TextLabel")
-    info.Size = UDim2.new(1, 0, 0.5, 0)
-    info.Position = UDim2.new(0, 0, 0.5, 0)
-    info.BackgroundTransparency = 1
-    info.Text = "HP: 100"
-    info.TextColor3 = Color3.new(1,1,1)
-    info.Parent = box
-
+Toggle(godCard, "Auto Heal (every 0.2s)", function(on)
+    Config.AutoHeal = on
     spawn(function()
-        while bg.Parent and (isAdminMode and Config.ESPAdmin or Config.ESPNormal) do
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                bg.Adornee = player.Character.HumanoidRootPart
-                local hum = player.Character:FindFirstChild("Humanoid")
-                if hum then info.Text = "HP: "..math.floor(hum.Health) end
+        while Config.AutoHeal do
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                local h = LocalPlayer.Character.Humanoid; h.Health = h.MaxHealth
             end
-            wait(0.1)
+            wait(0.2)
         end
-        bg:Destroy()
+    end)
+end)
+
+Btn(godCard, "Heal Now", "success", function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.Health = LocalPlayer.Character.Humanoid.MaxHealth
+    end
+end)
+
+-- ====================================================================
+-- ========================== WORLD PAGE ==============================
+-- ====================================================================
+local blkCard = Section(WorldPage, "🧱 BLOCK SPAWNER")
+
+local selBlockType  = "Part"
+local selMaterial   = Enum.Material.SmoothPlastic
+local selColor      = BrickColor.new("Bright blue")
+local blkSize       = 5
+
+-- Inline dropdown builder for this page (simple version)
+local function SimpleDropdown(parent, label, opts, onChange)
+    local frame = Instance.new("Frame")
+    frame.Size             = UDim2.new(1, 0, 0, 0)
+    frame.AutomaticSize    = Enum.AutomaticSize.Y
+    frame.BackgroundTransparency = 1
+    frame.Parent           = parent
+
+    local row = Instance.new("TextButton")
+    row.Size             = UDim2.new(1, 0, 0, 24)
+    row.BackgroundColor3 = T.SurfaceHi
+    row.Text             = label..": "..opts[1].." ▾"
+    row.TextColor3       = T.Text
+    row.TextSize         = 10
+    row.Font             = Enum.Font.GothamBold
+    row.AutoButtonColor  = false
+    Round(row, 6)
+    row.Parent = frame
+
+    local list = Instance.new("Frame")
+    list.Size             = UDim2.new(1, 0, 0, 0)
+    list.BackgroundColor3 = T.Surface
+    list.BorderSizePixel  = 0
+    list.ClipsDescendants = true
+    list.ZIndex           = 10
+    Round(list, 5)
+    list.Parent = frame
+
+    local ll = Instance.new("UIListLayout"); ll.Parent = list
+
+    local open = false
+    for _, opt in ipairs(opts) do
+        local ob = Instance.new("TextButton")
+        ob.Size             = UDim2.new(1,0,0,22)
+        ob.BackgroundColor3 = T.Surface
+        ob.Text             = opt
+        ob.TextColor3       = T.Text
+        ob.TextSize         = 9
+        ob.Font             = Enum.Font.Gotham
+        ob.BorderSizePixel  = 0
+        ob.AutoButtonColor  = false
+        ob.ZIndex           = 11
+        ob.Parent           = list
+        ob.MouseButton1Click:Connect(function()
+            row.Text = label..": "..opt.." ▾"
+            open = false; Tween(list, {Size = UDim2.new(1,0,0,0)}, 0.15)
+            if onChange then onChange(opt) end
+        end)
+    end
+
+    row.MouseButton1Click:Connect(function()
+        open = not open
+        Tween(list, {Size = UDim2.new(1,0,0, open and #opts*22 or 0)}, 0.18)
     end)
 end
 
-Players.PlayerAdded:Connect(function(p)
-    if Config.ESPNormal then CreateESP(p, false) end
-    if Config.ESPAdmin then CreateESP(p, true) end
+SimpleDropdown(blkCard, "Block Type", {"Part","WedgePart","CornerWedgePart","TrussPart","SpawnLocation"}, function(v) selBlockType = v end)
+SimpleDropdown(blkCard, "Material",   {"SmoothPlastic","Neon","Glass","Wood","Granite","DiamondPlate","Metal","ForceField"}, function(v) selMaterial = Enum.Material[v] end)
+SimpleDropdown(blkCard, "Color",      {"Bright red","Bright blue","Bright green","Bright yellow","White","Black","Hot pink","Neon orange","Medium stone grey"}, function(v) selColor = BrickColor.new(v) end)
+Slider(blkCard, "Block Size", 1, 50, 5, function(v) blkSize = v end)
+
+Btn(blkCard, "🧱 Spawn Block in Front", "primary", function()
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    local hrp  = LocalPlayer.Character.HumanoidRootPart
+    local part = Instance.new(selBlockType)
+    part.Size        = Vector3.new(blkSize, blkSize, blkSize)
+    part.BrickColor  = selColor
+    part.Material    = selMaterial
+    part.CFrame      = hrp.CFrame * CFrame.new(0, -hrp.Size.Y/2 - blkSize/2, -(blkSize + 4))
+    part.Anchored    = true
+    part.Parent      = workspace
+    if selMaterial == Enum.Material.Neon then
+        local pl = Instance.new("PointLight"); pl.Brightness = 5; pl.Range = 20; pl.Color = part.BrickColor.Color; pl.Parent = part
+    end
 end)
 
--- 4. WORLD TAB (COPY AVA, ADD BLOCK)
-local TabWorld = CreateTab("🌍 World", 4)
+Btn(blkCard, "🗑️ Remove Last Spawned Block", "danger", function()
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj:IsA("BasePart") and obj.Anchored and obj.Name ~= "Baseplate" and not obj:FindFirstAncestorOfClass("Model") then
+            obj:Destroy(); break
+        end
+    end
+end)
 
--- Copy Avatar
-local CopyFrame = Instance.new("Frame")
-CopyFrame.Size = UDim2.new(1, 0, 0, 80)
-CopyFrame.BackgroundColor3 = Colors.Secondary
-CopyFrame.Parent = TabWorld
-Roundify(CopyFrame, 6)
+Btn(blkCard, "💥 Clear All Spawned Blocks", "danger", function()
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj:IsA("BasePart") and obj.Anchored and obj.Name ~= "Baseplate" and not obj:FindFirstAncestorOfClass("Model") then
+            obj:Destroy()
+        end
+    end
+end)
 
-local TargetInput = Instance.new("TextBox")
-TargetInput.Size = UDim2.new(1, -70, 0, 30)
-TargetInput.Position = UDim2.new(0, 10, 0, 10)
-TargetInput.PlaceholderText = "Target Username..."
-TargetInput.BackgroundColor3 = Colors.Main
-TargetInput.TextColor3 = Colors.Text
-TargetInput.Parent = CopyFrame
-Roundify(TargetInput, 4)
+-- ====================================================================
+-- ========================= AVATAR PAGE ==============================
+-- ====================================================================
+local avaCard   = Section(AvaPage, "👤 COPY AVATAR")
+local avaSelP   = nil
+local avaStatus = Label(avaCard, "Select a player to copy their look.", 9, T.Muted)
+avaStatus.Size  = UDim2.new(1, 0, 0, 16)
 
-local CopyBtn = Instance.new("TextButton")
-CopyBtn.Size = UDim2.new(0, 50, 0, 30)
-CopyBtn.Position = UDim2.new(1, -60, 0, 10)
-CopyBtn.BackgroundColor3 = Colors.Primary
-CopyBtn.Text = "GO"
-CopyBtn.TextColor3 = Color3.new(0,0,0)
-CopyBtn.Parent = CopyFrame
-Roundify(CopyBtn, 4)
+local avaListObj = PlayerList(avaCard, 78, function(p) avaSelP = p end)
 
-local StatusTxt = Instance.new("TextLabel")
-StatusTxt.Size = UDim2.new(1, 0, 0, 20)
-StatusTxt.Position = UDim2.new(0, 0, 0, 50)
-StatusTxt.BackgroundTransparency = 1
-StatusTxt.Text = "Status: Ready"
-StatusTxt.TextColor3 = Colors.TextMuted
-StatusTxt.Parent = CopyFrame
+Btn(avaCard, "👤 Copy Avatar", "primary", function()
+    if not avaSelP then
+        avaStatus.Text = "⚠️  No player selected!"; avaStatus.TextColor3 = T.Error
+        wait(2); avaStatus.Text = "Select a player to copy their look."; avaStatus.TextColor3 = T.Muted; return
+    end
+    avaStatus.Text = "⏳ Copying "..avaSelP.Name.."..."; avaStatus.TextColor3 = T.Warning
 
-CopyBtn.MouseButton1Click:Connect(function()
-    local targetName = TargetInput.Text
-    StatusTxt.Text = "Scanning: " .. targetName .. "..."
-    
-    spawn(function()
-        local success, userId = pcall(function() return Players:GetUserIdFromNameAsync(targetName) end)
-        if success then
-            local desc = Players:GetHumanoidDescriptionFromUserId(userId)
+    local ok = false
+    -- Method 1: get applied description from target character
+    pcall(function()
+        if avaSelP.Character and avaSelP.Character:FindFirstChild("Humanoid") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            local desc = avaSelP.Character.Humanoid:GetAppliedDescription()
+            LocalPlayer.Character.Humanoid:ApplyDescription(desc)
+            ok = true
+        end
+    end)
+    -- Method 2: fetch via API
+    if not ok then
+        pcall(function()
+            local desc = Players:GetHumanoidDescriptionFromUserId(avaSelP.UserId)
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
                 LocalPlayer.Character.Humanoid:ApplyDescription(desc)
-                StatusTxt.Text = "Success! Avatar Copied."
-                StatusTxt.TextColor3 = Colors.Success
+                ok = true
             end
-        else
-            StatusTxt.Text = "Error: User not found."
-            StatusTxt.TextColor3 = Colors.Error
-        end
-    end)
+        end)
+    end
+
+    avaStatus.Text      = ok and "✅ Copied "..avaSelP.Name.."!" or "❌ Failed – game may restrict this"
+    avaStatus.TextColor3 = ok and T.Success or T.Error
+    wait(3); avaStatus.Text = "Select a player to copy their look."; avaStatus.TextColor3 = T.Muted
 end)
 
--- Add Block
-local BlockLabel = Instance.new("TextLabel")
-BlockLabel.Size = UDim2.new(1, 0, 0, 20)
-BlockLabel.Position = UDim2.new(0, 0, 0, 90)
-BlockLabel.BackgroundTransparency = 1
-BlockLabel.Text = "Summon Blocks (Click to Spawn):"
-BlockLabel.TextColor3 = Colors.Text
-BlockLabel.Parent = TabWorld
-
-local Blocks = {"Stone", "Wood", "Gold", "Diamond"}
-for i, bName in pairs(Blocks) do
-    local bBtn = Instance.new("TextButton")
-    bBtn.Size = UDim2.new(0, 80, 0, 30)
-    bBtn.Position = UDim2.new(0, (i-1)*85 + 5, 0, 115)
-    bBtn.BackgroundColor3 = Colors.Secondary
-    bBtn.Text = bName
-    bBtn.TextColor3 = Colors.Text
-    bBtn.Parent = TabWorld
-    Roundify(bBtn, 4)
-    
-    bBtn.MouseButton1Click:Connect(function()
-        local part = Instance.new("Part")
-        part.Name = bName
-        part.Size = Vector3.new(4, 4, 4)
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            part.Position = LocalPlayer.Character.HumanoidRootPart.Position + Vector3.new(0, 5, 5)
+Btn(avaCard, "🔄 Restore My Avatar", "normal", function()
+    pcall(function()
+        local desc = Players:GetHumanoidDescriptionFromUserId(LocalPlayer.UserId)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid:ApplyDescription(desc)
         end
-        part.Anchored = true
-        part.Parent = Workspace
-        if bName == "Gold" then part.BrickColor = BrickColor.new("Bright yellow") end
-        if bName == "Diamond" then part.BrickColor = BrickColor.new("Cyan") end
-        if bName == "Wood" then part.Material = Enum.Material.Wood end
     end)
+    avaStatus.Text = "✅ Avatar restored!"; avaStatus.TextColor3 = T.Success
+    wait(2); avaStatus.Text = "Select a player to copy their look."; avaStatus.TextColor3 = T.Muted
+end)
+
+-- ====================================================================
+-- ========================= PRESETS PAGE =============================
+-- ====================================================================
+local saveCard   = Section(PrePage, "💾 SAVE PRESET")
+local Presets    = {}
+
+local preNameBox = Instance.new("TextBox")
+preNameBox.Size             = UDim2.new(1, 0, 0, 24)
+preNameBox.BackgroundColor3 = T.SurfaceHi
+preNameBox.PlaceholderText  = "Preset name…"
+preNameBox.Text             = ""
+preNameBox.TextColor3       = T.Text
+preNameBox.TextSize         = 10
+preNameBox.Font             = Enum.Font.Gotham
+preNameBox.ClearTextOnFocus = false
+Round(preNameBox, 5)
+preNameBox.Parent = saveCard
+
+local preListSF = Instance.new("ScrollingFrame")
+preListSF.Size                 = UDim2.new(1, 0, 0, 72)
+preListSF.BackgroundColor3     = T.SurfaceHi
+preListSF.BackgroundTransparency = 0.45
+preListSF.BorderSizePixel      = 0
+preListSF.ScrollBarThickness   = 3
+preListSF.CanvasSize           = UDim2.new(0, 0, 0, 0)
+Round(preListSF, 6)
+preListSF.Parent = saveCard
+local preLL = Instance.new("UIListLayout"); preLL.Padding = UDim.new(0,3); preLL.Parent = preListSF
+
+local exportBox = Instance.new("TextBox")
+exportBox.Size              = UDim2.new(1, 0, 0, 46)
+exportBox.BackgroundColor3  = T.NavBg
+exportBox.PlaceholderText   = "Exported code will appear here…"
+exportBox.Text              = ""
+exportBox.TextColor3        = T.Primary
+exportBox.TextSize          = 8
+exportBox.Font              = Enum.Font.Code
+exportBox.MultiLine         = true
+exportBox.TextXAlignment    = Enum.TextXAlignment.Left
+exportBox.TextYAlignment    = Enum.TextYAlignment.Top
+exportBox.ClearTextOnFocus  = false
+Round(exportBox, 5)
+exportBox.Parent = saveCard
+
+local function RefreshPresets()
+    for _, c in pairs(preListSF:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+    local n = 0
+    for name, data in pairs(Presets) do
+        n = n + 1
+        local row = Instance.new("Frame"); row.Size = UDim2.new(1,-6,0,24); row.Position = UDim2.new(0,3,0,0); row.BackgroundColor3 = T.Surface; row.BorderSizePixel = 0; Round(row,5); row.Parent = preListSF
+        local nl = Label(row, name, 9, T.Text, Enum.Font.GothamBold); nl.Size = UDim2.new(0.5,0,1,0); nl.Position = UDim2.new(0,5,0,0)
+
+        local function SmallBtn(parent, txt, col, xOff)
+            local b = Instance.new("TextButton"); b.Size = UDim2.new(0,36,0,18); b.Position = UDim2.new(1,xOff,0.5,-9); b.BackgroundColor3 = col; b.Text = txt; b.TextColor3 = Color3.new(col == T.Admin and 0 or 1,col == T.Admin and 0 or 1,col == T.Admin and 0 or 1); b.TextSize = 8; b.Font = Enum.Font.GothamBold; b.AutoButtonColor = false; Round(b,4); b.Parent = parent; return b
+        end
+
+        SmallBtn(row, "Load",   T.Primary,  -118).MouseButton1Click:Connect(function()
+            Config.Speed = data.Speed or 16; Config.JumpPower = data.JumpPower or 50
+            workspace.Gravity = data.Gravity or 196.2
+            flySpeedCount = data.FlySpeed or 1; flySpdDisp.Text = tostring(flySpeedCount)
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                local h = LocalPlayer.Character.Humanoid; h.WalkSpeed = Config.Speed
+                if h.UseJumpPower then h.JumpPower = Config.JumpPower else h.JumpHeight = Config.JumpPower/10 end
+            end
+        end)
+        SmallBtn(row, "Export", T.Warning,  -80).MouseButton1Click:Connect(function()
+            exportBox.Text = string.format("-- Preset: %s\nConfig.Speed=%d\nConfig.JumpPower=%d\nConfig.FlySpeed=%d\nworkspace.Gravity=%g", name, data.Speed or 16, data.JumpPower or 50, data.FlySpeed or 1, data.Gravity or 196.2)
+        end)
+        SmallBtn(row, "✕",     T.Error,    -40).MouseButton1Click:Connect(function()
+            Presets[name] = nil; RefreshPresets()
+        end)
+    end
+    preListSF.CanvasSize = UDim2.new(0, 0, 0, n * 27)
 end
 
--- 5. ADMIN TAB
-local TabAdmin = CreateTab("🔐 Admin", 5)
+Btn(saveCard, "💾 Save Current Settings", "primary", function()
+    local nm = preNameBox.Text ~= "" and preNameBox.Text or ("Preset "..tostring(os.time()))
+    Presets[nm] = {Speed=Config.Speed, JumpPower=Config.JumpPower, FlySpeed=flySpeedCount, Gravity=workspace.Gravity}
+    preNameBox.Text = ""; RefreshPresets()
+end)
 
-local AdminInput = Instance.new("TextBox")
-AdminInput.Size = UDim2.new(1, 0, 0, 40)
-AdminInput.PlaceholderText = "Enter Admin Key..."
-AdminInput.BackgroundColor3 = Colors.Main
-AdminInput.Text = ""
-AdminInput.TextColor3 = Colors.Text
-AdminInput.Parent = TabAdmin
-Roundify(AdminInput, 6)
+local importBox = Instance.new("TextBox")
+importBox.Size              = UDim2.new(1, 0, 0, 40)
+importBox.BackgroundColor3  = T.NavBg
+importBox.PlaceholderText   = "Paste exported code here to import…"
+importBox.Text              = ""
+importBox.TextColor3        = T.Text
+importBox.TextSize          = 8
+importBox.Font              = Enum.Font.Code
+importBox.MultiLine         = true
+importBox.TextXAlignment    = Enum.TextXAlignment.Left
+importBox.TextYAlignment    = Enum.TextYAlignment.Top
+importBox.ClearTextOnFocus  = false
+Round(importBox, 5)
+importBox.Parent = saveCard
 
-local AdminLoginBtn = Instance.new("TextButton")
-AdminLoginBtn.Size = UDim2.new(1, 0, 0, 40)
-AdminLoginBtn.Position = UDim2.new(0, 0, 0, 50)
-AdminLoginBtn.BackgroundColor3 = Colors.Admin
-AdminLoginBtn.Text = "LOGIN ADMIN"
-AdminLoginBtn.TextColor3 = Color3.new(0,0,0)
-AdminLoginBtn.Font = Enum.Font.GothamBold
-AdminLoginBtn.Parent = TabAdmin
-Roundify(AdminLoginBtn, 6)
-
-AdminLoginBtn.MouseButton1Click:Connect(function()
-    if AdminInput.Text == AdminPassword then
-        Config.IsAdmin = true
-        StarterGui:SetCore("SendNotification", {Title = "ACCESS GRANTED", Text = "Welcome Owner"})
-        AdminESPToggle.Visible = true -- Show ESP V2
-        TabAdmin:Destroy() -- Remove login tab or hide elements
-    else
-        StarterGui:SetCore("SendNotification", {Title = "ACCESS DENIED", Text = "Wrong Password"})
-        AdminInput.Text = ""
+Btn(saveCard, "📥 Import from Code", "normal", function()
+    local code = importBox.Text
+    local nm    = code:match("-- Preset: ([^\n]+)")
+    if nm then
+        Presets[nm] = {
+            Speed     = tonumber(code:match("Config%.Speed=(%d+)"))     or 16,
+            JumpPower = tonumber(code:match("Config%.JumpPower=(%d+)")) or 50,
+            FlySpeed  = tonumber(code:match("Config%.FlySpeed=(%d+)"))  or 1,
+            Gravity   = tonumber(code:match("workspace%.Gravity=([%d%.]+)")) or 196.2,
+        }
+        RefreshPresets(); importBox.Text = ""
     end
 end)
 
--- 6. SETTINGS (SAVE/LOAD)
-local TabSet = CreateTab("⚙️ Set", 6)
+-- ====================================================================
+-- ========================= ADMIN PAGE ===============================
+-- ====================================================================
+local adminCard   = Section(AdminPage, "🔐 ADMIN LOGIN")
+local adminStatus = Label(adminCard, "🔒 Not authenticated", 9, T.Muted)
+adminStatus.Size  = UDim2.new(1, 0, 0, 16)
 
-local SaveBtn = Instance.new("TextButton")
-SaveBtn.Size = UDim2.new(1, 0, 0, 40)
-SaveBtn.BackgroundColor3 = Colors.Success
-SaveBtn.Text = "Save Preset"
-SaveBtn.Parent = TabSet
-Roundify(SaveBtn, 6)
-SaveBtn.MouseButton1Click:Connect(function()
-    local data = HttpService:JSONEncode(Config)
-    setclipboard(data)
-    StarterGui:SetCore("SendNotification", {Title = "Saved", Text = "Config copied to clipboard"})
-end)
+local pwBox = Instance.new("TextBox")
+pwBox.Size             = UDim2.new(1, 0, 0, 26)
+pwBox.BackgroundColor3 = T.NavBg
+pwBox.PlaceholderText  = "Enter password…"
+pwBox.Text             = ""
+pwBox.TextColor3       = T.Text
+pwBox.TextSize         = 11
+pwBox.Font             = Enum.Font.GothamBold
+pwBox.ClearTextOnFocus = false
+Round(pwBox, 6)
+pwBox.Parent = adminCard
 
-local LoadBtn = Instance.new("TextButton")
-LoadBtn.Size = UDim2.new(1, 0, 0, 40)
-LoadBtn.Position = UDim2.new(0, 0, 0, 50)
-LoadBtn.BackgroundColor3 = Colors.Secondary
-LoadBtn.Text = "Load Preset (Paste in chat then click)"
-LoadBtn.Parent = TabSet
-Roundify(LoadBtn, 6)
-LoadBtn.MouseButton1Click:Connect(function)
-    -- Note: Roblox scripts cannot read clipboard directly due to security.
-    -- User must paste in chat or a textbox.
-    StarterGui:SetCore("SendNotification", {Title = "Info", Text = "Paste your config in the box below"})
-end)
-
-local LoadInput = Instance.new("TextBox")
-LoadInput.Size = UDim2.new(1, 0, 0, 80)
-LoadInput.Position = UDim2.new(0, 0, 0, 100)
-LoadInput.Text = "Paste JSON Here..."
-LoadInput.BackgroundColor3 = Colors.Main
-LoadInput.TextColor3 = Colors.Text
-LoadInput.Parent = TabSet
-LoadInput.ClearTextOnFocus = false
-
-local ApplyBtn = Instance.new("TextButton")
-ApplyBtn.Size = UDim2.new(1, 0, 0, 30)
-ApplyBtn.Position = UDim2.new(0, 0, 0, 185)
-ApplyBtn.BackgroundColor3 = Colors.Primary
-ApplyBtn.Text = "Apply Config"
-ApplyBtn.Parent = TabSet
-Roundify(ApplyBtn, 6)
-ApplyBtn.MouseButton1Click:Connect(function()
-    local success, data = pcall(function() return HttpService:JSONDecode(LoadInput.Text) end)
-    if success then
-        for k, v in pairs(data) do Config[k] = v end
-        -- Apply basics
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.WalkSpeed = Config.WalkSpeed
-            LocalPlayer.Character.Humanoid.JumpPower = Config.JumpPower
+Btn(adminCard, "🔓 Unlock Admin Mode", "admin", function()
+    if pwBox.Text == "GEN1GO" then
+        Config.IsAdmin        = true
+        adminStatus.Text      = "✅ Admin Mode Active!"
+        adminStatus.TextColor3= T.Success
+        pwBox.Text            = ""
+        -- Reveal ESP V2 toggle
+        espV2Row.Visible        = true
+        espV2LockLbl.Text       = "✅ Admin verified – ESP V2 available"
+        espV2LockLbl.TextColor3 = T.Success
+        -- Billboard over head
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head") then
+            local bill = Instance.new("BillboardGui"); bill.Name = "AdminBadge"; bill.AlwaysOnTop = true
+            bill.Size = UDim2.new(0,170,0,48); bill.StudsOffset = Vector3.new(0,4,0)
+            bill.Adornee = LocalPlayer.Character.Head; bill.Parent = LocalPlayer.Character.Head
+            local bg = Instance.new("Frame"); bg.Size = UDim2.new(1,0,1,0); bg.BackgroundColor3 = Color3.new(0,0,0); bg.BackgroundTransparency = 0.4; Round(bg,10); bg.Parent = bill
+            local lbl1 = Instance.new("TextLabel"); lbl1.Size = UDim2.new(1,0,0.6,0); lbl1.BackgroundTransparency = 1; lbl1.Text = "👑  ADMIN / OWNER"; lbl1.TextColor3 = T.Admin; lbl1.TextSize = 15; lbl1.Font = Enum.Font.GothamBlack; lbl1.Parent = bg
+            local lbl2 = Instance.new("TextLabel"); lbl2.Size = UDim2.new(1,0,0.4,0); lbl2.Position = UDim2.new(0,0,0.6,0); lbl2.BackgroundTransparency = 1; lbl2.Text = "AP-NEXTGEN v9"; lbl2.TextColor3 = T.Muted; lbl2.TextSize = 10; lbl2.Font = Enum.Font.Gotham; lbl2.Parent = bg
+            spawn(function() local h=0; while bill.Parent do h=(h+0.02)%1; lbl1.TextColor3=Color3.fromHSV(h,1,1); wait(0.05) end end)
         end
-        Workspace.Gravity = Config.Gravity
-        StarterGui:SetCore("SendNotification", {Title = "Loaded", Text = "Preset Applied"})
+        StarterGui:SetCore("SendNotification", {Title="ADMIN MODE", Text="Welcome, Developer!", Duration=5})
     else
-        StarterGui:SetCore("SendNotification", {Title = "Error", Text = "Invalid JSON"})
+        pwBox.Text             = ""
+        adminStatus.Text       = "❌ Wrong password!"
+        adminStatus.TextColor3 = T.Error
+        Tween(pwBox, {BackgroundColor3 = T.Error}, 0.14)
+        wait(0.5); Tween(pwBox, {BackgroundColor3 = T.NavBg}, 0.14)
+        wait(1.5); adminStatus.Text = "🔒 Not authenticated"; adminStatus.TextColor3 = T.Muted
     end
 end)
 
--- INITIALIZE TABS
-Tabs[1].Btn.TextColor3 = Colors.Primary
-Tabs[1].Btn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-Tabs[1].Page.Visible = true
+-- ====================================================================
+-- ========================= UTILITY PAGE ============================
+-- ====================================================================
+local utilCard   = Section(UtilPage, "⚙️ UTILITIES")
+local serverCard = Section(UtilPage, "🌐 SERVER")
 
-MakeDraggable(MainFrame, TopBar)
+Toggle(utilCard, "Full Bright", function(on)
+    Config.FullBright = on
+    if on then
+        States.BrightnessConnection = RunService.RenderStepped:Connect(function()
+            Lighting.Brightness    = 10
+            Lighting.GlobalShadows = false
+            Lighting.Ambient       = Color3.new(1,1,1)
+            Lighting.OutdoorAmbient= Color3.new(1,1,1)
+        end)
+    else
+        if States.BrightnessConnection then States.BrightnessConnection:Disconnect(); States.BrightnessConnection = nil end
+        Lighting.Brightness    = 2
+        Lighting.GlobalShadows = true
+    end
+end)
 
-StarterGui:SetCore("SendNotification", {Title = "AP-NEXTGEN", Text = "Hub Loaded Successfully!"})
+Toggle(utilCard, "Anti-AFK", function(on)
+    Config.AntiAFK = on
+    if on then
+        local conn = LocalPlayer.Idled:Connect(function()
+            VirtualUser:Button2Down(Vector2.new(0,0), Camera.CFrame)
+            wait(1)
+            VirtualUser:Button2Up(Vector2.new(0,0), Camera.CFrame)
+        end)
+        table.insert(States.Connections, conn)
+    end
+end)
+
+Toggle(utilCard, "Unlock Camera Zoom", function(on)
+    Config.ZoomUnlock = on
+    if on then
+        LocalPlayer.CameraMaxZoomDistance = 999999
+        LocalPlayer.CameraMinZoomDistance = 0.1
+    else
+        LocalPlayer.CameraMaxZoomDistance = 128
+        LocalPlayer.CameraMinZoomDistance = 0.5
+    end
+end)
+
+Toggle(utilCard, "FPS Boost (reduce quality)", function(on)
+    Config.FPSBoost = on
+    if on then
+        settings().Rendering.QualityLevel = 1
+        Lighting.GlobalShadows = false
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("ParticleEmitter") then v.Enabled = false end
+        end
+    else
+        settings().Rendering.QualityLevel = 10
+        Lighting.GlobalShadows = true
+    end
+end)
+
+Btn(serverCard, "Rejoin This Server", "primary", function()
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end)
+
+Btn(serverCard, "Server Hop (find new server)", "normal", function()
+    pcall(function()
+        local data = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
+        for _, sv in pairs(data.data) do
+            if sv.playing < sv.maxPlayers and sv.id ~= game.JobId then
+                TeleportService:TeleportToPlaceInstance(game.PlaceId, sv.id); break
+            end
+        end
+    end)
+end)
+
+-- ====================================================================
+-- ==================== ORB / MINIMIZE / CLOSE =======================
+-- ====================================================================
+local OrbBtn = Instance.new("TextButton")
+OrbBtn.Size             = UDim2.new(0, 44, 0, 44)
+OrbBtn.Position         = UDim2.new(0, 12, 0.5, -22)
+OrbBtn.BackgroundColor3 = T.Primary
+OrbBtn.Text             = "AP"
+OrbBtn.TextColor3       = Color3.new(1, 1, 1)
+OrbBtn.TextSize         = 14
+OrbBtn.Font             = Enum.Font.GothamBlack
+OrbBtn.Visible          = false
+OrbBtn.ZIndex           = 100
+OrbBtn.Active           = true
+OrbBtn.Draggable        = true
+OrbBtn.AutoButtonColor  = false
+Round(OrbBtn, 22)
+Stroke(OrbBtn, T.Primary, 2)
+OrbBtn.Parent = SG
+
+MinBtn.MouseButton1Click:Connect(function()
+    Tween(MF, {Size = UDim2.new(0, 450, 0, 0)}, 0.22)
+    wait(0.22); MF.Visible = false; OrbBtn.Visible = true
+end)
+
+OrbBtn.MouseButton1Click:Connect(function()
+    OrbBtn.Visible = false; MF.Visible = true
+    Tween(MF, {Size = UDim2.new(0, 450, 0, 290)}, 0.3, Enum.EasingStyle.Back)
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    States.FlyActive = false
+    Config.Flying    = false
+    Config.Noclip    = false
+    Config.GodMode   = false
+    Cleanup()
+    SG:Destroy()
+    pcall(function() OrbBtn:Destroy() end)
+end)
+
+-- ====================================================================
+-- ==================== CHARACTER RE-ADDED ===========================
+-- ====================================================================
+LocalPlayer.CharacterAdded:Connect(function(chr)
+    wait(0.7)
+    States.FlyActive = false; States.tpwalking = false
+    if chr:FindFirstChild("Animate") then chr.Animate.Disabled = false end
+    local hum = chr:FindFirstChildWhichIsA("Humanoid")
+    if hum then
+        hum.WalkSpeed    = Config.Speed
+        hum.PlatformStand = false
+        if hum.UseJumpPower then hum.JumpPower = Config.JumpPower else hum.JumpHeight = Config.JumpPower/10 end
+    end
+    flyTogBtn.Text = "✈️  FLY: OFF"
+    Tween(flyTogBtn, {BackgroundColor3 = Color3.fromRGB(45,45,62), TextColor3 = T.Muted}, 0.1)
+end)
+
+-- ====================================================================
+-- ====================== OPENING ANIMATION ==========================
+-- ====================================================================
+MF.Size = UDim2.new(0, 0, 0, 0)
+SwitchPage("Dash")
+wait(0.1)
+Tween(MF, {Size = UDim2.new(0, 450, 0, 290)}, 0.5, Enum.EasingStyle.Back)
+
+StarterGui:SetCore("SendNotification", {
+    Title    = "AP-NEXTGEN v9.0 ULTRA",
+    Text     = "Hub loaded! by APTECH",
+    Duration = 4,
+})
+
+print("✅ AP-NEXTGEN v9.0 ULTRA Loaded!")
+print("Fly V3 ✓ | Admin ESP V2 ✓ | Block Spawner ✓ | Copy Avatar ✓ | Presets ✓")
