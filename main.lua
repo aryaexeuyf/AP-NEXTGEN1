@@ -1830,7 +1830,7 @@ wait(0.1)
 Tween(MF, {Size = UDim2.new(0, 450, 0, 290)}, 0.5, Enum.EasingStyle.Back)
 
 StarterGui:SetCore("SendNotification", {
-    Title    = "AP-NEXTGEN v9.0 ULTRA",
+    Title    = "Dev Ccript",
     Text     = "Hub loaded! by APTECH",
     Duration = 4,
 })
