@@ -1,8 +1,7 @@
 --[[
     AP-NEXTGEN v9.0 – UI SHELL (EDIT MODE) – ENHANCED EDITION
     Tema: Biru & Kuning Transparan
-    Dilengkapi opening, animasi smooth, background image, dan tata letak profesional.
-    Semua fungsi dikosongkan, hanya tampilan + animasi.
+    Opening smooth, tata letak rapi, preload gambar, fallback teks.
 ]]
 
 -- Services
@@ -10,30 +9,38 @@ local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui          = game:GetService("CoreGui")
+local ContentProvider  = game:GetService("ContentProvider")
 
 local LocalPlayer = Players.LocalPlayer
 
--- ==================== THEME (Biru & Kuning Transparan) ====================
-local T = {
-    -- Warna dasar
-    Bg        = Color3.fromRGB(0, 0, 0),        -- hitam pekat (untuk background transparan)
-    Surface   = Color3.fromRGB(20, 20, 40),     -- gelap kebiruan
-    SurfaceHi = Color3.fromRGB(35, 35, 60),     -- lebih terang
-    NavBg     = Color3.fromRGB(10, 10, 25),     -- sidebar
-    Primary   = Color3.fromRGB(0, 170, 255),    -- biru cerah
-    Success   = Color3.fromRGB(0, 210, 110),    -- hijau
-    Warning   = Color3.fromRGB(255, 200, 0),    -- kuning
-    Error     = Color3.fromRGB(255, 70, 80),    -- merah
-    Admin     = Color3.fromRGB(255, 210, 0),    -- kuning admin
-    Text      = Color3.fromRGB(245, 245, 255),  -- putih kebiruan
-    Muted     = Color3.fromRGB(160, 160, 190),  -- abu kebiruan
-    Border    = Color3.fromRGB(70, 70, 120),    -- border gelap
+-- ==================== PRELOAD GAMBAR ====================
+local imageUrls = {
+    logo = "https://raw.githubusercontent.com/aryaexeuyf/Image/main/logo_g1.png",
+    bg   = "https://raw.githubusercontent.com/aryaexeuyf/Image/main/background.jpg"
+}
+for _, url in pairs(imageUrls) do
+    ContentProvider:PreloadAsync({url})
+end
 
-    -- Transparansi (0 = solid, 1 = transparan penuh)
-    bgTrans   = 0.45,    -- untuk background utama (agar gambar terlihat)
-    surfTrans = 0.3,     -- untuk surface (card, topbar)
-    navTrans  = 0.5,     -- untuk sidebar
-    btnTrans  = 0.2,     -- untuk tombol navigasi
+-- ==================== THEME ====================
+local T = {
+    Bg        = Color3.fromRGB(0, 0, 0),
+    Surface   = Color3.fromRGB(20, 20, 40),
+    SurfaceHi = Color3.fromRGB(35, 35, 60),
+    NavBg     = Color3.fromRGB(10, 10, 25),
+    Primary   = Color3.fromRGB(0, 170, 255),
+    Success   = Color3.fromRGB(0, 210, 110),
+    Warning   = Color3.fromRGB(255, 200, 0),
+    Error     = Color3.fromRGB(255, 70, 80),
+    Admin     = Color3.fromRGB(255, 210, 0),
+    Text      = Color3.fromRGB(245, 245, 255),
+    Muted     = Color3.fromRGB(160, 160, 190),
+    Border    = Color3.fromRGB(70, 70, 120),
+
+    bgTrans   = 0.45,
+    surfTrans = 0.3,
+    navTrans  = 0.5,
+    btnTrans  = 0.2,
 }
 
 -- ==================== HELPERS ====================
@@ -84,22 +91,37 @@ OpeningFrame.BackgroundTransparency = 0
 OpeningFrame.ZIndex = 200
 OpeningFrame.Parent = SG
 
-local OpenTitle = Lbl(OpeningFrame, "AP-NEXTGEN1", 60, T.Primary, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
-OpenTitle.Size = UDim2.new(1, 0, 0, 100)
-OpenTitle.Position = UDim2.new(0.5, -250, 0.5, -60)
+-- Gunakan TextLabel dengan ukuran yang pas dan posisi center sempurna
+local OpenTitle = Instance.new("TextLabel")
+OpenTitle.Size = UDim2.new(0, 600, 0, 120)
+OpenTitle.Position = UDim2.new(0.5, -300, 0.5, -80)
+OpenTitle.BackgroundTransparency = 1
+OpenTitle.Text = "AP-NEXTGEN1"
+OpenTitle.TextColor3 = T.Primary
+OpenTitle.TextSize = 80
+OpenTitle.Font = Enum.Font.GothamBold
+OpenTitle.TextXAlignment = Enum.TextXAlignment.Center
+OpenTitle.TextYAlignment = Enum.TextYAlignment.Center
 OpenTitle.TextTransparency = 1
-OpenTitle.TextScaled = true
-Stroke(OpenTitle, T.Warning, 2)
+OpenTitle.Parent = OpeningFrame
+Stroke(OpenTitle, T.Warning, 3)
 
-local OpenCredit = Lbl(OpeningFrame, "By APTECH", 24, T.Warning, Enum.Font.Gotham, Enum.TextXAlignment.Center)
-OpenCredit.Size = UDim2.new(1, 0, 0, 40)
-OpenCredit.Position = UDim2.new(0.5, -150, 0.5, 30)
+local OpenCredit = Instance.new("TextLabel")
+OpenCredit.Size = UDim2.new(0, 400, 0, 60)
+OpenCredit.Position = UDim2.new(0.5, -200, 0.5, 30)
+OpenCredit.BackgroundTransparency = 1
+OpenCredit.Text = "By APTECH"
+OpenCredit.TextColor3 = T.Warning
+OpenCredit.TextSize = 40
+OpenCredit.Font = Enum.Font.Gotham
+OpenCredit.TextXAlignment = Enum.TextXAlignment.Center
+OpenCredit.TextYAlignment = Enum.TextYAlignment.Center
 OpenCredit.TextTransparency = 1
-OpenCredit.TextScaled = true
+OpenCredit.Parent = OpeningFrame
 
 -- Animasi opening
 Tween(OpenTitle, {TextTransparency = 0}, 1.2, Enum.EasingStyle.Quint)
-Tween(OpenCredit, {TextTransparency = 0}, 1.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+Tween(OpenCredit, {TextTransparency = 0}, 1.2, Enum.EasingStyle.Quint)
 
 wait(2.2)
 
@@ -110,28 +132,28 @@ Tween(OpenCredit, {TextTransparency = 1}, 0.6)
 wait(0.8)
 OpeningFrame:Destroy()
 
--- ==================== MAIN FRAME (dengan background image) ====================
+-- ==================== MAIN FRAME ====================
 local MF = Instance.new("Frame")
 MF.Name = "MainFrame"
 MF.Size = UDim2.new(0, 450, 0, 290)
 MF.Position = UDim2.new(0.5, -225, 0.5, -145)
 MF.BackgroundColor3 = T.Bg
-MF.BackgroundTransparency = T.bgTrans   -- transparan agar gambar di belakang terlihat
+MF.BackgroundTransparency = T.bgTrans
 MF.BorderSizePixel = 0
 MF.ClipsDescendants = true
 MF.Active = true
-MF.Visible = false   -- disembunyikan sampai opening selesai
+MF.Visible = false
 Round(MF, 16)
 Stroke(MF, T.Primary, 1.2)
 MF.Parent = SG
 
--- Background image (diletakkan di dalam MainFrame dengan ZIndex rendah)
+-- Background image
 local BgImage = Instance.new("ImageLabel")
 BgImage.Size = UDim2.new(1, 0, 1, 0)
 BgImage.BackgroundTransparency = 1
-BgImage.Image = "https://raw.githubusercontent.com/aryaexeuyf/Image/main/background.jpg"
+BgImage.Image = imageUrls.bg
 BgImage.ScaleType = Enum.ScaleType.Crop
-BgImage.ImageTransparency = 0.2   -- sedikit transparan biar elemen di atas terbaca
+BgImage.ImageTransparency = 0.2
 BgImage.ZIndex = 0
 BgImage.Parent = MF
 
@@ -145,7 +167,6 @@ TopBar.ZIndex = 5
 Round(TopBar, 16)
 TopBar.Parent = MF
 
--- Fix rounded corners bawah topbar
 local TopFix = Instance.new("Frame")
 TopFix.Size = UDim2.new(1, 0, 0, 12)
 TopFix.Position = UDim2.new(0, 0, 1, -12)
@@ -188,16 +209,16 @@ SrvLbl.Position = UDim2.new(0.5, -105, 0.5, -8)
 SrvLbl.ZIndex = 6
 SrvLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
--- Tombol minimize (ImageButton dengan icon)
+-- Tombol minimize (ImageButton)
 local MinBtn = Instance.new("ImageButton")
 MinBtn.Size = UDim2.new(0, 34, 0, 34)
 MinBtn.Position = UDim2.new(1, -76, 0.5, -17)
 MinBtn.BackgroundColor3 = T.SurfaceHi
 MinBtn.BackgroundTransparency = 0.2
-MinBtn.Image = "https://raw.githubusercontent.com/aryaexeuyf/Image/main/logo_g1.png"
+MinBtn.Image = imageUrls.logo
 MinBtn.ZIndex = 7
 MinBtn.AutoButtonColor = false
-Round(MinBtn, 10)   -- setengah kotak
+Round(MinBtn, 10)
 Stroke(MinBtn, T.Primary, 1)
 MinBtn.Parent = TopBar
 
@@ -594,7 +615,7 @@ StatRow(plrC, "User ID:",      tostring(LocalPlayer.UserId),        T.Muted)
 StatRow(plrC, "Display Name:", LocalPlayer.DisplayName,             T.Text)
 StatRow(plrC, "Team:",         "None",                              T.Warning)
 
--- Credit "script by aptech" di dashboard
+-- Credit "script by aptech"
 local creditFrame = Instance.new("Frame")
 creditFrame.Size = UDim2.new(1,0,0,24)
 creditFrame.BackgroundTransparency = 1
@@ -1027,15 +1048,13 @@ Toggle(utC, "FPS Boost")
 Btn(srC, "Rejoin Server", "primary")
 Btn(srC, "Server Hop", "normal")
 
--- ====================================================================
--- ===================== ORB / MINIMIZE / CLOSE ======================
--- ====================================================================
+-- ==================== ORB / MINIMIZE / CLOSE ====================
 local OrbBtn = Instance.new("ImageButton")
 OrbBtn.Size = UDim2.new(0, 50, 0, 50)
 OrbBtn.Position = UDim2.new(0, 12, 0.5, -25)
 OrbBtn.BackgroundColor3 = T.Primary
 OrbBtn.BackgroundTransparency = 0.1
-OrbBtn.Image = "https://raw.githubusercontent.com/aryaexeuyf/Image/main/logo_g1.png"
+OrbBtn.Image = imageUrls.logo
 OrbBtn.Visible = false
 OrbBtn.ZIndex = 100
 OrbBtn.Active = true
@@ -1062,9 +1081,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     SG:Destroy()
 end)
 
--- ====================================================================
 -- ====================== OPENING ANIMASI MAIN =======================
--- ====================================================================
 MF.Size = UDim2.new(0, 0, 0, 0)
 GoPage("Dash")
 wait(0.2)
