@@ -1,7 +1,7 @@
 --[[
     AP-NEXTGEN v9.0 – UI SHELL (EDIT MODE) – ENHANCED EDITION
     Tema: Biru & Kuning Transparan
-    Opening smooth, tata letak rapi, preload gambar, fallback teks.
+    Fallback gambar: jika tidak tampil, gunakan warna solid.
 ]]
 
 -- Services
@@ -13,13 +13,17 @@ local ContentProvider  = game:GetService("ContentProvider")
 
 local LocalPlayer = Players.LocalPlayer
 
--- ==================== PRELOAD GAMBAR ====================
-local imageUrls = {
+-- ==================== KONFIGURASI GAMBAR ====================
+local IMAGE_CONFIG = {
     logo = "https://raw.githubusercontent.com/aryaexeuyf/Image/main/logo_g1.png",
     bg   = "https://raw.githubusercontent.com/aryaexeuyf/Image/main/background.jpg"
 }
-for _, url in pairs(imageUrls) do
-    ContentProvider:PreloadAsync({url})
+
+-- Preload gambar (usahakan)
+for _, url in pairs(IMAGE_CONFIG) do
+    pcall(function()
+        ContentProvider:PreloadAsync({url})
+    end)
 end
 
 -- ==================== THEME ====================
@@ -75,6 +79,56 @@ local function Lbl(parent, text, size, color, font, align)
     return l
 end
 
+-- Fungsi untuk membuat ImageLabel dengan fallback (jika gambar gagal, akan terlihat warna background)
+local function SafeImage(parent, size, pos, url, bgColor, cornerRadius)
+    local container = Instance.new("Frame")
+    container.Size = size
+    container.Position = pos
+    container.BackgroundColor3 = bgColor or T.SurfaceHi
+    container.BackgroundTransparency = 0.2
+    container.ClipsDescendants = true
+    container.Parent = parent
+    Round(container, cornerRadius or 8)
+
+    local img = Instance.new("ImageLabel")
+    img.Size = UDim2.new(1, 0, 1, 0)
+    img.BackgroundTransparency = 1
+    img.Image = url
+    img.ScaleType = Enum.ScaleType.Crop
+    img.Parent = container
+
+    -- Jika gambar gagal, tetap tampilkan container berwarna
+    -- Roblox tidak memberikan event error, jadi kita hanya mengandalkan loading alami.
+    return container, img
+end
+
+local function SafeImageButton(parent, size, pos, url, bgColor, cornerRadius, fallbackText)
+    local container = Instance.new("Frame")
+    container.Size = size
+    container.Position = pos
+    container.BackgroundColor3 = bgColor or T.SurfaceHi
+    container.BackgroundTransparency = 0.2
+    container.ClipsDescendants = true
+    container.Parent = parent
+    Round(container, cornerRadius or 8)
+
+    local img = Instance.new("ImageLabel")
+    img.Size = UDim2.new(1, 0, 1, 0)
+    img.BackgroundTransparency = 1
+    img.Image = url
+    img.ScaleType = Enum.ScaleType.Fit
+    img.Parent = container
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Text = ""  -- kosong, karena gambar
+    btn.ZIndex = 10
+    btn.Parent = container
+
+    return container, btn
+end
+
 -- ==================== SCREENGUI ====================
 local SG = Instance.new("ScreenGui")
 SG.Name = "APNEXTGEN_UI"
@@ -91,7 +145,6 @@ OpeningFrame.BackgroundTransparency = 0
 OpeningFrame.ZIndex = 200
 OpeningFrame.Parent = SG
 
--- Gunakan TextLabel dengan ukuran yang pas dan posisi center sempurna
 local OpenTitle = Instance.new("TextLabel")
 OpenTitle.Size = UDim2.new(0, 600, 0, 120)
 OpenTitle.Position = UDim2.new(0.5, -300, 0.5, -80)
@@ -119,7 +172,6 @@ OpenCredit.TextYAlignment = Enum.TextYAlignment.Center
 OpenCredit.TextTransparency = 1
 OpenCredit.Parent = OpeningFrame
 
--- Animasi opening
 Tween(OpenTitle, {TextTransparency = 0}, 1.2, Enum.EasingStyle.Quint)
 Tween(OpenCredit, {TextTransparency = 0}, 1.2, Enum.EasingStyle.Quint)
 
@@ -147,15 +199,22 @@ Round(MF, 16)
 Stroke(MF, T.Primary, 1.2)
 MF.Parent = SG
 
--- Background image
+-- Background image dengan fallback (warna solid jika gagal)
+local bgContainer = Instance.new("Frame")
+bgContainer.Size = UDim2.new(1, 0, 1, 0)
+bgContainer.BackgroundColor3 = T.Bg
+bgContainer.BackgroundTransparency = 0
+bgContainer.ZIndex = 0
+bgContainer.Parent = MF
+
 local BgImage = Instance.new("ImageLabel")
 BgImage.Size = UDim2.new(1, 0, 1, 0)
 BgImage.BackgroundTransparency = 1
-BgImage.Image = imageUrls.bg
+BgImage.Image = IMAGE_CONFIG.bg
 BgImage.ScaleType = Enum.ScaleType.Crop
 BgImage.ImageTransparency = 0.2
-BgImage.ZIndex = 0
-BgImage.Parent = MF
+BgImage.ZIndex = 1
+BgImage.Parent = bgContainer
 
 -- ==================== TOP BAR ====================
 local TopBar = Instance.new("Frame")
@@ -177,16 +236,22 @@ TopFix.ZIndex = 4
 TopFix.Parent = TopBar
 
 -- Avatar foto profil
+local AvatarContainer = Instance.new("Frame")
+AvatarContainer.Size = UDim2.new(0, 30, 0, 30)
+AvatarContainer.Position = UDim2.new(0, 6, 0.5, -15)
+AvatarContainer.BackgroundColor3 = T.SurfaceHi
+AvatarContainer.BackgroundTransparency = 0.2
+AvatarContainer.ZIndex = 6
+Round(AvatarContainer, 15)
+Stroke(AvatarContainer, T.Primary, 1)
+AvatarContainer.Parent = TopBar
+
 local AvImg = Instance.new("ImageLabel")
-AvImg.Size = UDim2.new(0, 30, 0, 30)
-AvImg.Position = UDim2.new(0, 6, 0.5, -15)
-AvImg.BackgroundColor3 = T.SurfaceHi
-AvImg.BackgroundTransparency = T.surfTrans
+AvImg.Size = UDim2.new(1, 0, 1, 0)
+AvImg.BackgroundTransparency = 1
 AvImg.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..LocalPlayer.UserId.."&width=150&height=150&format=png"
-AvImg.ZIndex = 6
-Round(AvImg, 15)
-Stroke(AvImg, T.Primary, 1)
-AvImg.Parent = TopBar
+AvImg.ZIndex = 7
+AvImg.Parent = AvatarContainer
 
 -- Nama user
 local NameLbl = Lbl(TopBar, LocalPlayer.Name, 12, T.Text, Enum.Font.GothamBold)
@@ -209,18 +274,32 @@ SrvLbl.Position = UDim2.new(0.5, -105, 0.5, -8)
 SrvLbl.ZIndex = 6
 SrvLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
--- Tombol minimize (ImageButton)
-local MinBtn = Instance.new("ImageButton")
-MinBtn.Size = UDim2.new(0, 34, 0, 34)
-MinBtn.Position = UDim2.new(1, -76, 0.5, -17)
-MinBtn.BackgroundColor3 = T.SurfaceHi
-MinBtn.BackgroundTransparency = 0.2
-MinBtn.Image = imageUrls.logo
-MinBtn.ZIndex = 7
+-- Tombol minimize (ImageButton dengan fallback)
+local MinBtnContainer = Instance.new("Frame")
+MinBtnContainer.Size = UDim2.new(0, 34, 0, 34)
+MinBtnContainer.Position = UDim2.new(1, -76, 0.5, -17)
+MinBtnContainer.BackgroundColor3 = T.SurfaceHi
+MinBtnContainer.BackgroundTransparency = 0.2
+MinBtnContainer.ZIndex = 7
+Round(MinBtnContainer, 10)
+Stroke(MinBtnContainer, T.Primary, 1)
+MinBtnContainer.Parent = TopBar
+
+local MinImg = Instance.new("ImageLabel")
+MinImg.Size = UDim2.new(1, 0, 1, 0)
+MinImg.BackgroundTransparency = 1
+MinImg.Image = IMAGE_CONFIG.logo
+MinImg.ScaleType = Enum.ScaleType.Fit
+MinImg.ZIndex = 8
+MinImg.Parent = MinBtnContainer
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(1, 0, 1, 0)
+MinBtn.BackgroundTransparency = 1
+MinBtn.Text = ""
+MinBtn.ZIndex = 9
 MinBtn.AutoButtonColor = false
-Round(MinBtn, 10)
-Stroke(MinBtn, T.Primary, 1)
-MinBtn.Parent = TopBar
+MinBtn.Parent = MinBtnContainer
 
 -- Tombol close
 local CloseBtn = Instance.new("TextButton")
@@ -1049,30 +1128,43 @@ Btn(srC, "Rejoin Server", "primary")
 Btn(srC, "Server Hop", "normal")
 
 -- ==================== ORB / MINIMIZE / CLOSE ====================
-local OrbBtn = Instance.new("ImageButton")
-OrbBtn.Size = UDim2.new(0, 50, 0, 50)
-OrbBtn.Position = UDim2.new(0, 12, 0.5, -25)
-OrbBtn.BackgroundColor3 = T.Primary
-OrbBtn.BackgroundTransparency = 0.1
-OrbBtn.Image = imageUrls.logo
-OrbBtn.Visible = false
-OrbBtn.ZIndex = 100
-OrbBtn.Active = true
-OrbBtn.Draggable = true
+local OrbContainer = Instance.new("Frame")
+OrbContainer.Size = UDim2.new(0, 50, 0, 50)
+OrbContainer.Position = UDim2.new(0, 12, 0.5, -25)
+OrbContainer.BackgroundColor3 = T.Primary
+OrbContainer.BackgroundTransparency = 0.1
+OrbContainer.Visible = false
+OrbContainer.ZIndex = 100
+OrbContainer.Active = true
+Round(OrbContainer, 25)
+Stroke(OrbContainer, T.Warning, 2)
+OrbContainer.Parent = SG
+
+local OrbImg = Instance.new("ImageLabel")
+OrbImg.Size = UDim2.new(1, 0, 1, 0)
+OrbImg.BackgroundTransparency = 1
+OrbImg.Image = IMAGE_CONFIG.logo
+OrbImg.ScaleType = Enum.ScaleType.Fit
+OrbImg.ZIndex = 101
+OrbImg.Parent = OrbContainer
+
+local OrbBtn = Instance.new("TextButton")
+OrbBtn.Size = UDim2.new(1, 0, 1, 0)
+OrbBtn.BackgroundTransparency = 1
+OrbBtn.Text = ""
+OrbBtn.ZIndex = 102
 OrbBtn.AutoButtonColor = false
-Round(OrbBtn, 25)
-Stroke(OrbBtn, T.Warning, 2)
-OrbBtn.Parent = SG
+OrbBtn.Parent = OrbContainer
 
 MinBtn.MouseButton1Click:Connect(function()
     Tween(MF, {Size = UDim2.new(0, 450, 0, 0)}, 0.25)
     wait(0.25)
     MF.Visible = false
-    OrbBtn.Visible = true
+    OrbContainer.Visible = true
 end)
 
 OrbBtn.MouseButton1Click:Connect(function()
-    OrbBtn.Visible = false
+    OrbContainer.Visible = false
     MF.Visible = true
     Tween(MF, {Size = UDim2.new(0, 450, 0, 290)}, 0.4, Enum.EasingStyle.Back)
 end)
