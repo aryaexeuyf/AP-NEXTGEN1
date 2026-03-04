@@ -117,34 +117,35 @@ local function FallbackIcon(btn, fallbackText)
 end
 
 -- ==================== SCREENGUI ====================
+-- Hapus semua dari mulai OpeningFrame sampai task.spawn fetch, lalu ganti dengan:
 local SG = Instance.new("ScreenGui")
 SG.Name = "APNEXTGEN_UI"
-SG.Parent = CoreGui
+SG.Parent = LocalPlayer:WaitForChild("PlayerGui")  -- Gunakan PlayerGui, bukan CoreGui
 SG.ResetOnSpawn = false
 SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 SG.DisplayOrder = 100
 
--- ==================== OPENING SEQUENCE ====================
-local OpeningFrame = Instance.new("Frame")
-OpeningFrame.Size = UDim2.new(1, 0, 1, 0)
-OpeningFrame.BackgroundColor3 = Color3.new(0, 0, 0)
-OpeningFrame.BackgroundTransparency = 0
-OpeningFrame.ZIndex = 200
-OpeningFrame.Parent = SG
+-- Buat MainFrame langsung dengan ukuran penuh
+local MF = Instance.new("Frame")
+MF.Name = "MainFrame"
+MF.Size = UDim2.new(0, 450, 0, 290)
+MF.Position = UDim2.new(0.5, -225, 0.5, -145)
+MF.BackgroundColor3 = Color3.fromRGB(0,0,0)
+MF.BackgroundTransparency = 0.45
+MF.BorderSizePixel = 0
+MF.ClipsDescendants = true
+MF.Active = true
+MF.Visible = true
+Instance.new("UICorner", MF).CornerRadius = UDim.new(0,16)
+MF.Parent = SG
 
-local OpenTitle = Instance.new("TextLabel")
-OpenTitle.Size = UDim2.new(0, 600, 0, 120)
-OpenTitle.Position = UDim2.new(0.5, -300, 0.5, -80)
-OpenTitle.BackgroundTransparency = 1
-OpenTitle.Text = "AP-NEXTGEN1"
-OpenTitle.TextColor3 = T.Primary
-OpenTitle.TextSize = 80
-OpenTitle.Font = Enum.Font.GothamBold
-OpenTitle.TextXAlignment = Enum.TextXAlignment.Center
-OpenTitle.TextYAlignment = Enum.TextYAlignment.Center
-OpenTitle.TextTransparency = 1
-OpenTitle.Parent = OpeningFrame
-Stroke(OpenTitle, T.Warning, 3)
+-- Tambahkan label sederhana untuk test
+local testLabel = Instance.new("TextLabel", MF)
+testLabel.Size = UDim2.new(1,0,1,0)
+testLabel.Text = "UI BERHASIL DIMUAT"
+testLabel.TextColor3 = Color3.new(1,1,1)
+testLabel.BackgroundTransparency = 1
+testLabel.TextSize = 20
 
 local OpenCredit = Instance.new("TextLabel")
 OpenCredit.Size = UDim2.new(0, 400, 0, 60)
