@@ -1,7 +1,12 @@
 --[[
-    AP-NEXTGEN v9.0 – UI SHELL (EDIT MODE) – ENHANCED EDITION
+    AP-NEXTGEN v9.1 – UI SHELL (EDIT MODE) – ENHANCED & FIXED
     Tema: Biru & Kuning Transparan
-    Opening smooth, tata letak rapi, preload gambar, fallback teks.
+    - Perbaikan icon (fallback teks jika gambar gagal dimuat)
+    - Slider lebih presisi
+    - Dropdown auto-close saat klik di luar
+    - Drag lebih halus
+    - Tata letak lebih rapi & responsif
+    - Semua bug minor diperbaiki
 ]]
 
 -- Services
@@ -13,42 +18,29 @@ local ContentProvider  = game:GetService("ContentProvider")
 
 local LocalPlayer = Players.LocalPlayer
 
--- ==================== LOAD IMAGE DARI GITHUB ====================
--- FIX: request() → writefile() → getcustomasset()
--- Metode ini satu-satunya yang terbukti work untuk URL eksternal di executor
-
+-- ==================== LOAD IMAGE DARI GITHUB (DENGAN FALLBACK) ====================
 local imageUrls = {
     logo = "https://raw.githubusercontent.com/aryaexeuyf/Image/main/logo_g1.png",
     bg   = "https://raw.githubusercontent.com/aryaexeuyf/Image/main/background.jpg"
 }
 
 -- Deteksi fungsi HTTP executor
-local httpFunc = nil
-if syn and syn.request then
-    httpFunc = syn.request
-elseif http_request then
-    httpFunc = http_request
-elseif http and http.request then
-    httpFunc = http.request
-elseif request then
-    httpFunc = request
-end
+local httpFunc = (syn and syn.request) or http_request or (http and http.request) or request
+local getAsset = getcustomasset or getsynasset
+local writeFile = writefile -- pastikan fungsi ini ada
 
--- Deteksi getcustomasset
-local getAsset = getcustomasset or getsynasset or nil
-
--- Fungsi fetch: download → simpan → return asset ID
+-- Fungsi fetch dengan fallback
 local function fetchImage(url, filename)
-    if not httpFunc or not writefile or not getAsset then return "" end
-    local ok, res = pcall(httpFunc, {
+    if not (httpFunc and writeFile and getAsset) then return "" end
+    local success, res = pcall(httpFunc, {
         Url = url, Method = "GET",
         Headers = { ["User-Agent"] = "Mozilla/5.0" }
     })
-    if not ok or not res or not res.Body or #res.Body < 100 then return "" end
-    local wOk = pcall(writefile, filename, res.Body)
-    if not wOk then return "" end
-    local aOk, id = pcall(getAsset, filename)
-    return (aOk and id and id ~= "") and id or ""
+    if not (success and res and res.Body and #res.Body > 100) then return "" end
+    local writeSuccess = pcall(writeFile, filename, res.Body)
+    if not writeSuccess then return "" end
+    local assetSuccess, assetId = pcall(getAsset, filename)
+    return (assetSuccess and assetId and assetId ~= "") and assetId or ""
 end
 
 -- ==================== THEME ====================
@@ -104,6 +96,26 @@ local function Lbl(parent, text, size, color, font, align)
     return l
 end
 
+local function FallbackIcon(btn, fallbackText)
+    -- Jika gambar gagal dimuat, ganti dengan teks fallback
+    btn:GetPropertyChangedSignal("Image"):Connect(function()
+        if btn.Image == "" then
+            btn.Text = fallbackText
+            btn.TextSize = 20
+            btn.TextColor3 = T.Primary
+            btn.Font = Enum.Font.GothamBold
+        else
+            btn.Text = ""
+        end
+    end)
+    if btn.Image == "" then
+        btn.Text = fallbackText
+        btn.TextSize = 20
+        btn.TextColor3 = T.Primary
+        btn.Font = Enum.Font.GothamBold
+    end
+end
+
 -- ==================== SCREENGUI ====================
 local SG = Instance.new("ScreenGui")
 SG.Name = "APNEXTGEN_UI"
@@ -120,7 +132,6 @@ OpeningFrame.BackgroundTransparency = 0
 OpeningFrame.ZIndex = 200
 OpeningFrame.Parent = SG
 
--- Gunakan TextLabel dengan ukuran yang pas dan posisi center sempurna
 local OpenTitle = Instance.new("TextLabel")
 OpenTitle.Size = UDim2.new(0, 600, 0, 120)
 OpenTitle.Position = UDim2.new(0.5, -300, 0.5, -80)
@@ -148,17 +159,16 @@ OpenCredit.TextYAlignment = Enum.TextYAlignment.Center
 OpenCredit.TextTransparency = 1
 OpenCredit.Parent = OpeningFrame
 
--- Animasi opening
 Tween(OpenTitle, {TextTransparency = 0}, 1.2, Enum.EasingStyle.Quint)
 Tween(OpenCredit, {TextTransparency = 0}, 1.2, Enum.EasingStyle.Quint)
 
-wait(2.2)
+task.wait(2.2)
 
 Tween(OpeningFrame, {BackgroundTransparency = 1}, 0.8)
 Tween(OpenTitle, {TextTransparency = 1}, 0.6)
 Tween(OpenCredit, {TextTransparency = 1}, 0.6)
 
-wait(0.8)
+task.wait(0.8)
 OpeningFrame:Destroy()
 
 -- ==================== MAIN FRAME ====================
@@ -176,16 +186,26 @@ Round(MF, 16)
 Stroke(MF, T.Primary, 1.2)
 MF.Parent = SG
 
--- Background image
--- FIX: Image dikosongkan dulu, diisi setelah fetch selesai di bawah
+-- Background image (fallback jika gagal)
 local BgImage = Instance.new("ImageLabel")
 BgImage.Size = UDim2.new(1, 0, 1, 0)
-BgImage.BackgroundTransparency = 1
+BgImage.BackgroundColor3 = T.Surface
+BgImage.BackgroundTransparency = 0.2
 BgImage.Image = ""
 BgImage.ScaleType = Enum.ScaleType.Crop
 BgImage.ImageTransparency = 0.2
 BgImage.ZIndex = 0
 BgImage.Parent = MF
+
+-- Fallback jika background gagal dimuat
+BgImage:GetPropertyChangedSignal("Image"):Connect(function()
+    if BgImage.Image == "" then
+        BgImage.BackgroundTransparency = 0.2
+        BgImage.BackgroundColor3 = T.Surface
+    else
+        BgImage.BackgroundTransparency = 1
+    end
+end)
 
 -- ==================== TOP BAR ====================
 local TopBar = Instance.new("Frame")
@@ -239,8 +259,7 @@ SrvLbl.Position = UDim2.new(0.5, -105, 0.5, -8)
 SrvLbl.ZIndex = 6
 SrvLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
--- Tombol minimize (ImageButton)
--- FIX: Image dikosongkan dulu, diisi setelah fetch selesai di bawah
+-- Tombol minimize (ImageButton) dengan fallback teks
 local MinBtn = Instance.new("ImageButton")
 MinBtn.Size = UDim2.new(0, 34, 0, 34)
 MinBtn.Position = UDim2.new(1, -76, 0.5, -17)
@@ -252,6 +271,7 @@ MinBtn.AutoButtonColor = false
 Round(MinBtn, 10)
 Stroke(MinBtn, T.Primary, 1)
 MinBtn.Parent = TopBar
+FallbackIcon(MinBtn, "🗕")  -- fallback icon minimize
 
 -- Tombol close
 local CloseBtn = Instance.new("TextButton")
@@ -270,35 +290,38 @@ Stroke(CloseBtn, T.Border, 1)
 CloseBtn.Parent = TopBar
 
 -- ==================== SERVER INFO UPDATER ====================
-spawn(function()
-    while SrvLbl.Parent do
+task.spawn(function()
+    while SrvLbl and SrvLbl.Parent do
         local pc = #Players:GetPlayers()
         local mp = 0
         pcall(function() mp = Players.MaxPlayers end)
         GameLbl.Text = game.Name:sub(1, 14)
         SrvLbl.Text = "🌐 Global | ID:"..tostring(game.PlaceId):sub(1,9).." | "..pc.."/"..mp
-        wait(5)
+        task.wait(5)
     end
 end)
 
--- ==================== DRAG TOPBAR ====================
-local _drag, _ds, _sp = false, nil, nil
-TopBar.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        _drag = true
-        _ds = i.Position
-        _sp = MF.Position
+-- ==================== DRAG TOPBAR (DIPERBAIKI) ====================
+local dragging = false
+local dragStart, startPos
+
+TopBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MF.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
     end
 end)
-UserInputService.InputChanged:Connect(function(i)
-    if _drag and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-        local d = i.Position - _ds
-        MF.Position = UDim2.new(_sp.X.Scale, _sp.X.Offset + d.X, _sp.Y.Scale, _sp.Y.Offset + d.Y)
-    end
-end)
-UserInputService.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
-        _drag = false
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        MF.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
 
@@ -409,7 +432,7 @@ local function NavBtn(icon, pageName)
     return b
 end
 
--- ==================== UI COMPONENT BUILDERS ====================
+-- ==================== UI COMPONENT BUILDERS (DIPERBAIKI) ====================
 local function Section(parent, title)
     local card = Instance.new("Frame")
     card.Size = UDim2.new(1, 0, 0, 0)
@@ -520,7 +543,7 @@ local function Slider(parent, text, min, max, default, _callback)
     Round(track, 2)
     track.Parent = frame
 
-    local pct = (default - min) / math.max(max - min, 1)
+    local pct = (default - min) / (max - min)
     local fill = Instance.new("Frame")
     fill.Size = UDim2.new(pct, 0, 1, 0)
     fill.BackgroundColor3 = T.Primary
@@ -536,38 +559,46 @@ local function Slider(parent, text, min, max, default, _callback)
     knob.Parent = track
 
     local dragging = false
-    local function doUpdate(input)
-        local p = math.clamp((input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
-        local v = math.floor(min + (max - min) * p)
-        vbox.Text = tostring(v)
+    local function updateFromInput(input)
+        local pos = input.Position
+        local trackPos, trackSize = track.AbsolutePosition, track.AbsoluteSize
+        local relativeX = math.clamp(pos.X - trackPos.X, 0, trackSize.X)
+        local p = relativeX / trackSize.X
+        local val = math.floor(min + (max - min) * p + 0.5)
+        val = math.clamp(val, min, max)
+        vbox.Text = tostring(val)
+        p = (val - min) / (max - min)
         fill.Size = UDim2.new(p, 0, 1, 0)
         knob.Position = UDim2.new(p, -7, 0.5, -7)
-        if _callback then _callback(v) end
+        if _callback then _callback(val) end
     end
 
-    track.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+    track.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
-            doUpdate(i)
+            updateFromInput(input)
         end
     end)
-    UserInputService.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
-            doUpdate(i)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            updateFromInput(input)
         end
     end)
-    UserInputService.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
     end)
+
     vbox.FocusLost:Connect(function()
-        local v = math.clamp(tonumber(vbox.Text) or default, min, max)
-        vbox.Text = tostring(v)
-        local p = (v - min) / math.max(max - min, 1)
+        local val = math.clamp(tonumber(vbox.Text) or default, min, max)
+        vbox.Text = tostring(val)
+        local p = (val - min) / (max - min)
         fill.Size = UDim2.new(p, 0, 1, 0)
         knob.Position = UDim2.new(p, -7, 0.5, -7)
-        if _callback then _callback(v) end
+        if _callback then _callback(val) end
     end)
 
     return frame
@@ -594,11 +625,91 @@ local function Btn(parent, text, style, _callback)
     b.Parent = parent
     b.MouseButton1Click:Connect(function()
         Tween(b, {BackgroundColor3 = col:Lerp(Color3.new(1,1,1), 0.2), BackgroundTransparency = 0}, 0.07)
-        wait(0.07)
+        task.wait(0.07)
         Tween(b, {BackgroundColor3 = col, BackgroundTransparency = 0.2}, 0.1)
         if _callback then _callback() end
     end)
     return b
+end
+
+local function Dropdown(parent, labelTxt, options, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 0)
+    frame.AutomaticSize = Enum.AutomaticSize.Y
+    frame.BackgroundTransparency = 1
+    frame.Parent = parent
+
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, 0, 0, 26)
+    button.BackgroundColor3 = T.SurfaceHi
+    button.BackgroundTransparency = 0.2
+    button.Text = labelTxt .. ": " .. options[1] .. " ▾"
+    button.TextColor3 = T.Text
+    button.TextSize = 11
+    button.Font = Enum.Font.GothamBold
+    button.AutoButtonColor = false
+    Round(button, 8)
+    button.Parent = frame
+
+    local list = Instance.new("Frame")
+    list.Size = UDim2.new(1, 0, 0, 0)
+    list.BackgroundColor3 = T.Surface
+    list.BackgroundTransparency = 0.3
+    list.BorderSizePixel = 0
+    list.ClipsDescendants = true
+    list.ZIndex = 10
+    Round(list, 6)
+    list.Parent = frame
+
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Parent = list
+
+    local open = false
+    local selected = options[1]
+
+    for _, opt in ipairs(options) do
+        local optBtn = Instance.new("TextButton")
+        optBtn.Size = UDim2.new(1, 0, 0, 24)
+        optBtn.BackgroundColor3 = T.Surface
+        optBtn.BackgroundTransparency = 0.3
+        optBtn.Text = opt
+        optBtn.TextColor3 = T.Text
+        optBtn.TextSize = 10
+        optBtn.Font = Enum.Font.Gotham
+        optBtn.BorderSizePixel = 0
+        optBtn.AutoButtonColor = false
+        optBtn.ZIndex = 11
+        optBtn.Parent = list
+        optBtn.MouseButton1Click:Connect(function()
+            selected = opt
+            button.Text = labelTxt .. ": " .. opt .. " ▾"
+            open = false
+            Tween(list, { Size = UDim2.new(1, 0, 0, 0) }, 0.15)
+            if callback then callback(opt) end
+        end)
+    end
+
+    button.MouseButton1Click:Connect(function()
+        open = not open
+        local targetHeight = open and (#options * 26) or 0
+        Tween(list, { Size = UDim2.new(1, 0, 0, targetHeight) }, 0.18)
+    end)
+
+    -- Menutup dropdown jika klik di luar
+    UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local pos = input.Position
+            local absPos, absSize = frame.AbsolutePosition, frame.AbsoluteSize
+            if not (pos.X >= absPos.X and pos.X <= absPos.X + absSize.X and pos.Y >= absPos.Y and pos.Y <= absPos.Y + absSize.Y) then
+                if open then
+                    open = false
+                    Tween(list, { Size = UDim2.new(1, 0, 0, 0) }, 0.15)
+                end
+            end
+        end
+    end)
+
+    return frame
 end
 
 -- ==================== BUAT HALAMAN ====================
@@ -616,6 +727,7 @@ NavBtn("⚙️", "Util");  local PgUtil  = NewPage("Util")
 
 -- ====================================================================
 -- ====================== ISI TIAP HALAMAN ===========================
+-- (Hanya beberapa perbaikan minor, sisanya tetap seperti asli)
 -- ====================================================================
 
 -- ---------- DASHBOARD ----------
@@ -646,7 +758,7 @@ StatRow(plrC, "User ID:",      tostring(LocalPlayer.UserId),        T.Muted)
 StatRow(plrC, "Display Name:", LocalPlayer.DisplayName,             T.Text)
 StatRow(plrC, "Team:",         "None",                              T.Warning)
 
--- Credit "script by aptech"
+-- Credit
 local creditFrame = Instance.new("Frame")
 creditFrame.Size = UDim2.new(1,0,0,24)
 creditFrame.BackgroundTransparency = 1
@@ -655,12 +767,13 @@ local creditLbl = Lbl(creditFrame, "script by aptech", 10, T.Muted, Enum.Font.Go
 creditLbl.Size = UDim2.new(1, -10, 1, 0)
 creditLbl.Parent = creditFrame
 
-spawn(function()
-    while sPly.Parent do
-        local pc=0; local mp=0
-        pcall(function() pc=#Players:GetPlayers(); mp=Players.MaxPlayers end)
+task.spawn(function()
+    while sPly and sPly.Parent do
+        local pc = #Players:GetPlayers()
+        local mp = 0
+        pcall(function() mp = Players.MaxPlayers end)
         sPly.Text = pc.."/"..mp
-        wait(5)
+        task.wait(5)
     end
 end)
 
@@ -793,7 +906,7 @@ tpSF.BackgroundColor3=T.SurfaceHi
 tpSF.BackgroundTransparency=0.4
 tpSF.BorderSizePixel=0
 tpSF.ScrollBarThickness=4
-tpSF.CanvasSize=UDim2.new(0,0,0,0)
+tpSF.AutomaticCanvasSize = Enum.AutomaticSize.Y
 Round(tpSF,8)
 tpSF.Parent=tpC
 
@@ -803,10 +916,8 @@ tpLL.Parent=tpSF
 
 local function RefreshTPList()
     for _, c in pairs(tpSF:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
-    local n = 0
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
-            n = n + 1
             local b = Instance.new("TextButton")
             b.Size=UDim2.new(1,-6,0,26)
             b.Position=UDim2.new(0,3,0,0)
@@ -825,7 +936,6 @@ local function RefreshTPList()
             end)
         end
     end
-    tpSF.CanvasSize = UDim2.new(0,0,0,n*30)
 end
 RefreshTPList()
 Players.PlayerAdded:Connect(RefreshTPList)
@@ -856,65 +966,6 @@ Btn(godC, "Heal Now", "success")
 -- ---------- WORLD ----------
 local wC = Section(PgWorld, "🧱 BLOCK SPAWNER")
 
-local function Dropdown(parent, labelTxt, opts)
-    local frame = Instance.new("Frame")
-    frame.Size=UDim2.new(1,0,0,0)
-    frame.AutomaticSize=Enum.AutomaticSize.Y
-    frame.BackgroundTransparency=1
-    frame.Parent=parent
-
-    local row = Instance.new("TextButton")
-    row.Size=UDim2.new(1,0,0,26)
-    row.BackgroundColor3=T.SurfaceHi
-    row.BackgroundTransparency=0.2
-    row.Text=labelTxt..": "..opts[1].." ▾"
-    row.TextColor3=T.Text
-    row.TextSize=11
-    row.Font=Enum.Font.GothamBold
-    row.AutoButtonColor=false
-    Round(row,8)
-    row.Parent=frame
-
-    local list = Instance.new("Frame")
-    list.Size=UDim2.new(1,0,0,0)
-    list.BackgroundColor3=T.Surface
-    list.BackgroundTransparency=0.3
-    list.BorderSizePixel=0
-    list.ClipsDescendants=true
-    list.ZIndex=10
-    Round(list,6)
-    list.Parent=frame
-
-    local ll = Instance.new("UIListLayout")
-    ll.Parent=list
-    local open = false
-
-    for _, opt in ipairs(opts) do
-        local ob = Instance.new("TextButton")
-        ob.Size=UDim2.new(1,0,0,24)
-        ob.BackgroundColor3=T.Surface
-        ob.BackgroundTransparency=0.3
-        ob.Text=opt
-        ob.TextColor3=T.Text
-        ob.TextSize=10
-        ob.Font=Enum.Font.Gotham
-        ob.BorderSizePixel=0
-        ob.AutoButtonColor=false
-        ob.ZIndex=11
-        ob.Parent=list
-        ob.MouseButton1Click:Connect(function()
-            row.Text=labelTxt..": "..opt.." ▾"
-            open=false
-            Tween(list,{Size=UDim2.new(1,0,0,0)},0.15)
-        end)
-    end
-
-    row.MouseButton1Click:Connect(function()
-        open = not open
-        Tween(list,{Size=UDim2.new(1,0,0,open and #opts*26 or 0)},0.18)
-    end)
-end
-
 Dropdown(wC, "Block Type",  {"Part","Wedge","CornerWedge","Truss","SpawnLocation"})
 Dropdown(wC, "Material",    {"SmoothPlastic","Neon","Glass","Wood","Granite","Metal","ForceField"})
 Dropdown(wC, "Color",       {"Red","Blue","Green","Yellow","White","Black","Pink","Orange"})
@@ -935,7 +986,7 @@ avSF.BackgroundColor3=T.SurfaceHi
 avSF.BackgroundTransparency=0.4
 avSF.BorderSizePixel=0
 avSF.ScrollBarThickness=4
-avSF.CanvasSize=UDim2.new(0,0,0,0)
+avSF.AutomaticCanvasSize = Enum.AutomaticSize.Y
 Round(avSF,8)
 avSF.Parent=avC
 
@@ -945,10 +996,8 @@ avLL.Parent=avSF
 
 local function RefreshAvaList()
     for _, c in pairs(avSF:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
-    local n = 0
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer then
-            n=n+1
             local b = Instance.new("TextButton")
             b.Size=UDim2.new(1,-6,0,26)
             b.Position=UDim2.new(0,3,0,0)
@@ -972,7 +1021,6 @@ local function RefreshAvaList()
             end)
         end
     end
-    avSF.CanvasSize = UDim2.new(0,0,0,n*30)
 end
 RefreshAvaList()
 Players.PlayerAdded:Connect(RefreshAvaList)
@@ -1003,7 +1051,7 @@ preSF.BackgroundColor3=T.SurfaceHi
 preSF.BackgroundTransparency=0.4
 preSF.BorderSizePixel=0
 preSF.ScrollBarThickness=4
-preSF.CanvasSize=UDim2.new(0,0,0,0)
+preSF.AutomaticCanvasSize = Enum.AutomaticSize.Y
 Round(preSF,8)
 preSF.Parent=svC
 local preLL = Instance.new("UIListLayout")
@@ -1080,7 +1128,6 @@ Btn(srC, "Rejoin Server", "primary")
 Btn(srC, "Server Hop", "normal")
 
 -- ==================== ORB / MINIMIZE / CLOSE ====================
--- FIX: Image dikosongkan dulu, diisi setelah fetch selesai di bawah
 local OrbBtn = Instance.new("ImageButton")
 OrbBtn.Size = UDim2.new(0, 50, 0, 50)
 OrbBtn.Position = UDim2.new(0, 12, 0.5, -25)
@@ -1095,10 +1142,11 @@ OrbBtn.AutoButtonColor = false
 Round(OrbBtn, 25)
 Stroke(OrbBtn, T.Warning, 2)
 OrbBtn.Parent = SG
+FallbackIcon(OrbBtn, "◉")  -- fallback icon orb
 
 MinBtn.MouseButton1Click:Connect(function()
     Tween(MF, {Size = UDim2.new(0, 450, 0, 0)}, 0.25)
-    wait(0.25)
+    task.wait(0.25)
     MF.Visible = false
     OrbBtn.Visible = true
 end)
@@ -1116,22 +1164,18 @@ end)
 -- ====================== OPENING ANIMASI MAIN =======================
 MF.Size = UDim2.new(0, 0, 0, 0)
 GoPage("Dash")
-wait(0.2)
+task.wait(0.2)
 MF.Visible = true
 Tween(MF, {Size = UDim2.new(0, 450, 0, 290)}, 0.6, Enum.EasingStyle.Back)
 
--- ==================== FETCH IMAGE (di background, non-blocking) ====================
--- Diletakkan PALING BAWAH agar UI sudah tampil duluan,
--- gambar muncul otomatis begitu download selesai
+-- ==================== FETCH IMAGE (di background) ====================
 task.spawn(function()
-    -- Load logo → apply ke MinBtn dan OrbBtn
     local logoId = fetchImage(imageUrls.logo, "apng_logo.png")
     if logoId ~= "" then
         MinBtn.Image = logoId
         OrbBtn.Image = logoId
     end
 
-    -- Load background → apply ke BgImage
     local bgId = fetchImage(imageUrls.bg, "apng_bg.jpg")
     if bgId ~= "" then
         BgImage.Image = bgId
